@@ -23,6 +23,7 @@ const ROL_CORTO = {
 // Cada módulo se muestra en el menú lateral si el usuario tiene el permiso disparador.
 const MODULOS = [
   { id: "dashboard", perm: "DASHBOARD_VER", nombre: "Dashboard", icon: "📊", desc: "Alumnos y grupos activos, métricas del programa." },
+  { id: "misclases", perm: "SESION_VER", nombre: "Mis clases", icon: "🧑‍🏫", desc: "Toma asistencia y entra al Meet de tus clases." },
   { id: "inscripciones", perm: "INSC_VER", nombre: "Inscripciones", icon: "📝", desc: "Altas, estados y asignación de grupo." },
   { id: "grupos", perm: "GRUPO_VER", nombre: "Grupos", icon: "👥", desc: "Cohortes, maestro, horario y Google Meet." },
   { id: "maestros", perm: "MAESTRO_VER", nombre: "Maestros", icon: "🎓", desc: "Perfiles, cotización y documentos." },
@@ -263,6 +264,7 @@ function Shell({ sesion, onSalir }) {
 
         <main className="pnl-main">
           {modActiva?.id === "dashboard" ? <Dashboard u={u} />
+            : modActiva?.id === "misclases" ? <MisClases />
             : modActiva?.id === "usuarios" ? <Usuarios />
             : modActiva?.id === "inscripciones" ? <Inscripciones />
             : modActiva?.id === "grupos" ? <Grupos />
@@ -1039,6 +1041,123 @@ function MontoInput({ valor, onGuardar }) {
         onBlur={() => { if (String(valor ?? 0) !== v) onGuardar(Number(v)); }}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } }}
         style={{ width: 100, padding: "5px 8px", borderRadius: 8, border: "1px solid var(--borde)", fontSize: 13.5, fontFamily: "inherit" }} />
+    </div>
+  );
+}
+
+function MisClases() {
+  const [data, setData] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [periodo, setPeriodo] = useState("JUL-2026");
+  const [busy, setBusy] = useState(false);
+  const [accId, setAccId] = useState(null);
+
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const r = await fetch("/api/panel/sesiones?periodo=" + encodeURIComponent(periodo));
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudieron cargar las clases.");
+      setData(d);
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [periodo]);
+
+  async function generar() {
+    setBusy(true); setError("");
+    try {
+      const r = await fetch("/api/panel/sesiones", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ periodo }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudieron generar las clases.");
+      cargar();
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  }
+
+  async function asistencia(s, estado) {
+    setAccId(s.id); setError("");
+    try {
+      const r = await fetch("/api/panel/sesiones", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: s.id, estado }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo registrar.");
+      cargar();
+    } catch (e) { setError(e.message); }
+    setAccId(null);
+  }
+
+  const rows = data?.rows || [];
+  const hoyStr = new Date().toISOString().slice(0, 10);
+  const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const fmtFecha = (f) => { const dt = new Date(f + "T00:00:00"); return `${DIAS[dt.getDay()]} ${dt.getDate()} ${MES[dt.getMonth()]}`; };
+
+  return (
+    <div>
+      <div className="u-head">
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>🧑‍🏫 Mis clases</h1>
+          <p style={{ color: "var(--gris)" }}>Toma asistencia al iniciar tu clase y entra al Meet.</p>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <select className="u-sel" style={{ marginTop: 0, width: "auto" }} value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
+            {(data?.periodos && data.periodos.length ? data.periodos : ["JUL-2026"]).map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          {data?.puede_generar && <button className="u-btn" onClick={generar} disabled={busy}>{busy ? "…" : "🗓 Generar clases del periodo"}</button>}
+        </div>
+      </div>
+
+      {data?.puede_generar && (
+        <p style={{ color: "var(--gris)", fontSize: 13, marginBottom: 12 }}>
+          Administración: total de clases del periodo (todos los grupos): <b>{data.total_periodo}</b>. Aquí abajo solo aparecen las tuyas.
+        </p>
+      )}
+      {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
+
+      <div className="u-card">
+        {cargando ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
+        ) : !rows.length ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>
+            No tienes clases en este periodo.{data?.puede_generar ? " Genera el calendario, o revisa que los grupos tengan horario semanal y maestro asignado." : ""}
+          </div>
+        ) : (
+          <div className="u-tablewrap">
+            <table className="u-table">
+              <thead>
+                <tr><th>Fecha</th><th>Hora</th><th>Grupo</th><th>Duración</th><th>Estado</th><th style={{ textAlign: "right" }}>Acción</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => {
+                  const esHoy = s.fecha === hoyStr;
+                  return (
+                    <tr key={s.id} style={esHoy ? { background: "#FFF8EE" } : undefined}>
+                      <td style={{ fontWeight: esHoy ? 800 : 600 }}>
+                        {fmtFecha(s.fecha)}{esHoy && <span style={{ color: "var(--naranja-osc)", fontSize: 11, marginLeft: 6, fontWeight: 800 }}>HOY</span>}
+                      </td>
+                      <td style={{ color: "var(--gris)" }}>{(s.hora || "").slice(0, 5)}</td>
+                      <td><b>{s.grupo}</b> · N{s.nivel}</td>
+                      <td>{s.duracion_horas} h</td>
+                      <td>
+                        <span className="u-badge" style={s.estado === "impartida" ? { background: "#E7F5EC", color: "#1B7A3D" } : s.estado === "reprogramada" ? { background: "#E6EEF9", color: "#2D5FA6" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{s.estado}</span>
+                      </td>
+                      <td>
+                        <div className="u-acts">
+                          {s.link_meet && <a className="u-mini" href={s.link_meet} target="_blank" rel="noopener noreferrer" style={{ color: "var(--naranja-osc)", fontWeight: 700 }}>Meet ↗</a>}
+                          {s.estado !== "impartida"
+                            ? <button className="u-mini" style={{ background: "var(--naranja)", color: "#fff", border: "none" }} disabled={accId === s.id} onClick={() => asistencia(s, "impartida")}>Tomar asistencia</button>
+                            : <button className="u-mini" disabled={accId === s.id} onClick={() => asistencia(s, "programada")}>Deshacer</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
