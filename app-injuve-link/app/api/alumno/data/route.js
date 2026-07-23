@@ -28,14 +28,28 @@ export async function GET(req) {
   }
 
   let grupo = null;
+  let sesiones = [];
   if (al.grupo) {
     const { data: g } = await sb
       .from("groups")
-      .select("codigo, maestro, nivel, horario, liga_meet")
+      .select("id, codigo, maestro, nivel, horario, liga_meet")
       .eq("codigo", al.grupo)
       .maybeSingle();
     grupo = g || null;
+    if (g) {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const { data: ses } = await sb
+        .from("sesiones_clase")
+        .select("fecha, hora, estado, duracion_horas, reprogramada_de, link_meet")
+        .eq("group_id", g.id)
+        .gte("fecha", hoy)
+        .in("estado", ["programada", "reprogramada"])
+        .order("fecha", { ascending: true })
+        .order("hora", { ascending: true })
+        .limit(10);
+      sesiones = ses || [];
+    }
   }
 
-  return NextResponse.json({ alumno: al, grupo });
+  return NextResponse.json({ alumno: al, grupo, sesiones });
 }
