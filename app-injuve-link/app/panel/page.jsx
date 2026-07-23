@@ -1017,6 +1017,7 @@ function MisClases() {
   const [periodo, setPeriodo] = useState("JUL-2026");
   const [busy, setBusy] = useState(false);
   const [accId, setAccId] = useState(null);
+  const [reprog, setReprog] = useState(null);
 
   async function cargar() {
     setCargando(true); setError("");
@@ -1113,6 +1114,7 @@ function MisClases() {
                           {s.estado !== "impartida"
                             ? <button className="u-mini" style={{ background: "var(--naranja)", color: "#fff", border: "none" }} disabled={accId === s.id} onClick={() => asistencia(s, "impartida")}>Tomar asistencia</button>
                             : <button className="u-mini" disabled={accId === s.id} onClick={() => asistencia(s, "programada")}>Deshacer</button>}
+                          {s.estado !== "impartida" && <button className="u-mini" onClick={() => setReprog(s)}>Reprogramar</button>}
                         </div>
                       </td>
                     </tr>
@@ -1123,6 +1125,47 @@ function MisClases() {
           </div>
         )}
       </div>
+
+      {reprog && <ReprogramarModal sesion={reprog} onClose={() => setReprog(null)} onDone={() => { setReprog(null); cargar(); }} />}
+    </div>
+  );
+}
+
+function ReprogramarModal({ sesion, onClose, onDone }) {
+  const [fecha, setFecha] = useState(sesion.fecha || "");
+  const [hora, setHora] = useState((sesion.hora || "").slice(0, 5));
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function guardar(e) {
+    e.preventDefault(); setError(""); setBusy(true);
+    try {
+      const r = await fetch("/api/panel/sesiones", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: sesion.id, fecha, hora }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo reprogramar.");
+      onDone();
+    } catch (err) { setError(err.message); setBusy(false); }
+  }
+
+  return (
+    <div className="u-modal-bg" onClick={onClose}>
+      <form className="u-modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()} onSubmit={guardar}>
+        <h3>Reprogramar clase</h3>
+        <p style={{ color: "var(--gris)", fontSize: 13.5, marginTop: 4 }}>Grupo <b>{sesion.grupo}</b>. Los alumnos verán la nueva fecha en su portal.</p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <label style={{ flex: "1 1 150px", fontSize: 12, color: "var(--gris)" }}>Nueva fecha
+            <input className="u-inp" style={{ marginTop: 3 }} type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
+          </label>
+          <label style={{ flex: "1 1 110px", fontSize: 12, color: "var(--gris)" }}>Nueva hora
+            <input className="u-inp" style={{ marginTop: 3 }} type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+          </label>
+        </div>
+        {error && <div className="u-err">{error}</div>}
+        <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
+          <button type="button" className="u-btn sec" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="u-btn" disabled={busy}>{busy ? "…" : "Reprogramar"}</button>
+        </div>
+      </form>
     </div>
   );
 }
