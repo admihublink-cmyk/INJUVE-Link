@@ -265,6 +265,7 @@ function Shell({ sesion, onSalir }) {
           {modActiva?.id === "dashboard" ? <Dashboard u={u} />
             : modActiva?.id === "usuarios" ? <Usuarios />
             : modActiva?.id === "inscripciones" ? <Inscripciones />
+            : modActiva?.id === "grupos" ? <Grupos />
             : <Modulo mod={modActiva} />}
         </main>
       </div>
@@ -554,6 +555,176 @@ function InscripcionModal({ alumno, grupos, puedeAsignar, puedeEstado, onClose, 
         <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
           <button type="button" className="u-btn sec" onClick={onClose}>Cancelar</button>
           <button type="submit" className="u-btn" disabled={busy}>{busy ? "…" : "Guardar cambios"}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function Grupos() {
+  const [data, setData] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [modal, setModal] = useState(null);
+  const [togId, setTogId] = useState(null);
+
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const r = await fetch("/api/panel/grupos");
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudieron cargar los grupos.");
+      setData(d);
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  useEffect(() => { cargar(); }, []);
+
+  async function toggleActivo(g) {
+    setTogId(g.id); setError("");
+    try {
+      const r = await fetch("/api/panel/grupos", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: g.id, activo: !g.activo }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo actualizar.");
+      cargar();
+    } catch (e) { setError(e.message); }
+    setTogId(null);
+  }
+
+  const rows = data?.rows || [];
+  const puedeEditar = data?.puede_editar || data?.puede_maestro;
+  const puedeActivar = data?.puede_activar;
+  const puedeCrear = data?.puede_crear;
+  const puedeBorrar = data?.puede_borrar;
+
+  return (
+    <div>
+      <div className="u-head">
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>👥 Grupos</h1>
+          <p style={{ color: "var(--gris)" }}>Maestro, horario, cupo y liga de Meet de cada grupo.</p>
+        </div>
+        {puedeCrear && <button className="u-btn" onClick={() => setModal({ tipo: "nuevo" })}>+ Nuevo grupo</button>}
+      </div>
+
+      {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
+
+      <div className="u-card">
+        {cargando ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
+        ) : !rows.length ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Sin grupos.</div>
+        ) : (
+          <div className="u-tablewrap">
+            <table className="u-table">
+              <thead>
+                <tr>
+                  <th>Grupo</th><th>Nivel</th><th>Maestro</th><th>Horario</th>
+                  <th style={{ textAlign: "center" }}>Inscritos</th><th>Clase</th><th>Estado</th>
+                  <th style={{ textAlign: "right" }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((g) => (
+                  <tr key={g.id} style={{ opacity: g.activo ? 1 : 0.55 }}>
+                    <td style={{ fontWeight: 700 }}>{g.codigo}</td>
+                    <td><span className="u-rol">{g.nivel || "—"}</span></td>
+                    <td>{g.maestro || "—"}{g.maestro_id && <span title="Cuenta de maestro vinculada" style={{ color: "#1B7A3D", marginLeft: 5 }}>●</span>}</td>
+                    <td style={{ color: "var(--gris)", fontSize: 13 }}>{g.horario || "—"}</td>
+                    <td style={{ textAlign: "center", fontWeight: 600 }}>{g.inscritos}<span style={{ color: "var(--gris)", fontWeight: 400 }}> / {g.cupo}</span></td>
+                    <td>{g.liga_meet ? <a href={g.liga_meet} target="_blank" rel="noopener noreferrer" style={{ color: "var(--naranja-osc)", fontWeight: 700 }}>Meet ↗</a> : <span style={{ color: "var(--gris)" }}>—</span>}</td>
+                    <td><span className={"u-badge " + (g.activo ? "on" : "off")}>{g.activo ? "Activo" : "Inactivo"}</span></td>
+                    <td>
+                      <div className="u-acts">
+                        {puedeEditar && <button className="u-mini" onClick={() => setModal({ tipo: "editar", grupo: g })}>Editar</button>}
+                        {puedeActivar && <button className="u-mini" onClick={() => toggleActivo(g)} disabled={togId === g.id}>{g.activo ? "Desactivar" : "Activar"}</button>}
+                        {puedeBorrar && <button className="u-mini dan" onClick={() => setModal({ tipo: "borrar", grupo: g })}>Borrar</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <GrupoModal
+          modal={modal}
+          maestros={data?.maestros || []}
+          periodos={data?.periodos || []}
+          puedeMaestro={data?.puede_maestro}
+          puedeEditar={data?.puede_editar}
+          onClose={() => setModal(null)}
+          onDone={() => { setModal(null); cargar(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onClose, onDone }) {
+  const g = modal.grupo || {};
+  const [v, setV] = useState({
+    codigo: g.codigo || "", periodo: g.periodo || periodos[0] || "JUL-2026",
+    nivel: g.nivel || "", maestro: g.maestro || "", horario: g.horario || "",
+    cupo: g.cupo != null ? String(g.cupo) : "", liga_meet: g.liga_meet || "",
+  });
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setV((s) => ({ ...s, [k]: e.target.value }));
+  const titulos = { nuevo: "Nuevo grupo", editar: "Editar grupo", borrar: "Borrar grupo" };
+
+  async function enviar(e) {
+    e.preventDefault(); setError(""); setBusy(true);
+    try {
+      let r;
+      if (modal.tipo === "borrar") {
+        r = await fetch("/api/panel/grupos", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: g.id }) });
+      } else if (modal.tipo === "nuevo") {
+        r = await fetch("/api/panel/grupos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: v.codigo, periodo: v.periodo, nivel: v.nivel, maestro: v.maestro, horario: v.horario, cupo: v.cupo, liga_meet: v.liga_meet }) });
+      } else {
+        const body = { id: g.id };
+        if (puedeEditar) { body.nivel = v.nivel; body.horario = v.horario; body.cupo = v.cupo; body.liga_meet = v.liga_meet; }
+        if (puedeMaestro) { body.maestro = v.maestro; }
+        r = await fetch("/api/panel/grupos", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      }
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo completar.");
+      onDone();
+    } catch (err) { setError(err.message); setBusy(false); }
+  }
+
+  return (
+    <div className="u-modal-bg" onClick={onClose}>
+      <form className="u-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()} onSubmit={enviar}>
+        <h3>{titulos[modal.tipo]}</h3>
+        {modal.tipo === "borrar" ? (
+          <p style={{ color: "var(--gris)", marginTop: 8, fontSize: 14.5 }}>
+            ¿Seguro que quieres borrar el grupo <b>{g.codigo}</b>? Si tiene alumnos asignados no se podrá borrar; en ese caso, mejor <b>desactívalo</b>.
+          </p>
+        ) : (
+          <>
+            {modal.tipo === "nuevo"
+              ? <input className="u-inp" placeholder="Código (ej. G16)" value={v.codigo} onChange={set("codigo")} />
+              : <input className="u-inp" value={v.codigo} disabled style={{ opacity: 0.6 }} />}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <input className="u-inp" style={{ flex: "1 1 140px" }} placeholder="Nivel (ej. 1 y 2)" value={v.nivel} onChange={set("nivel")} />
+              <input className="u-inp" style={{ flex: "1 1 100px" }} type="number" min="0" placeholder="Cupo" value={v.cupo} onChange={set("cupo")} />
+            </div>
+            <input className="u-inp" placeholder="Maestro" value={v.maestro} onChange={set("maestro")} list="lista-maestros" />
+            <datalist id="lista-maestros">{maestros.map((m) => <option key={m} value={m} />)}</datalist>
+            <input className="u-inp" placeholder="Horario (ej. 5:00 pm - 7:00 pm)" value={v.horario} onChange={set("horario")} />
+            <input className="u-inp" placeholder="Liga de Google Meet (https://…)" value={v.liga_meet} onChange={set("liga_meet")} />
+          </>
+        )}
+        {error && <div className="u-err">{error}</div>}
+        <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
+          <button type="button" className="u-btn sec" onClick={onClose}>Cancelar</button>
+          <button type="submit" className={"u-btn" + (modal.tipo === "borrar" ? " dan" : "")} disabled={busy}>
+            {busy ? "…" : modal.tipo === "borrar" ? "Sí, borrar" : modal.tipo === "nuevo" ? "Crear grupo" : "Guardar"}
+          </button>
         </div>
       </form>
     </div>
