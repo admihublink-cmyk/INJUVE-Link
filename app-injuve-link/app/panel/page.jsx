@@ -273,25 +273,35 @@ function Shell({ sesion, onSalir }) {
 
 function Dashboard({ u }) {
   const primer = (u.nombre || "").trim().split(/\s+/)[0] || "equipo";
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    fetch("/api/panel/dashboard")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(setD)
+      .catch(() => setErr(true));
+  }, []);
+  const num = (v) => (d ? Number(v).toLocaleString("es-MX") : err ? "—" : "…");
   const cards = [
-    ["Alumnos activos", "—"], ["Grupos activos", "—"],
-    ["Maestros", "—"], ["Casos por resolver", "—"],
+    ["Alumnos activos", d && d.alumnos, d ? `${d.en_grupo} en grupo · ${d.sin_grupo} sin grupo` : null],
+    ["Grupos activos", d && d.grupos, null],
+    ["Maestros", d && d.maestros, null],
+    ["Casos por resolver", d && d.casos, null],
   ];
   return (
     <div>
       <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>Dashboard general</h1>
       <p style={{ color: "var(--gris)", marginBottom: 24 }}>Hola, {primer}. Este es el resumen del programa.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16 }}>
-        {cards.map(([t, v]) => (
+        {cards.map(([t, v, sub]) => (
           <div key={t} style={{ background: "#fff", border: "1px solid var(--borde)", borderRadius: 16, padding: "20px 22px", boxShadow: "var(--sombra)" }}>
-            <div style={{ fontSize: 34, fontWeight: 800, color: "var(--naranja-osc)", lineHeight: 1, fontFamily: "var(--font-titulo),sans-serif" }}>{v}</div>
+            <div style={{ fontSize: 34, fontWeight: 800, color: "var(--naranja-osc)", lineHeight: 1, fontFamily: "var(--font-titulo),sans-serif" }}>{num(v)}</div>
             <div style={{ fontSize: 13.5, color: "var(--gris)", marginTop: 6 }}>{t}</div>
+            {sub && <div style={{ fontSize: 12, color: "var(--gris)", marginTop: 4, opacity: 0.85 }}>{sub}</div>}
           </div>
         ))}
       </div>
-      <p style={{ marginTop: 22, fontSize: 13, color: "var(--gris)", fontStyle: "italic" }}>
-        Las métricas se conectarán a datos reales cuando construyamos el módulo de Dashboard.
-      </p>
+      {err && <p style={{ marginTop: 16, fontSize: 13, color: "#B3261E" }}>No se pudieron cargar las métricas.</p>}
     </div>
   );
 }
