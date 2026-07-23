@@ -1,0 +1,1 @@
+-- Académico: programa_modulos, sesiones_clase, asistencia, calificaciones, tareas, entregas_tarea + groups.activo/maestro_id (aplicada 2026-07-22).
