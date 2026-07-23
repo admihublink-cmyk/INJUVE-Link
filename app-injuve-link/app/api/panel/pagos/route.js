@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supa, leerSesion } from "../../../lib/auth";
 
+const TARIFA_HORA = 200; // $ por hora de clase impartida
+
 async function actor(sb, req) {
   const s = leerSesion(req);
   if (!s) return null;
@@ -13,9 +15,19 @@ async function actor(sb, req) {
 const mant = () => NextResponse.json({ error: "El sistema está en mantenimiento." }, { status: 503 });
 const noAuth = () => NextResponse.json({ error: "No autenticado." }, { status: 401 });
 const noPerm = () => NextResponse.json({ error: "No tienes permiso para esta acción." }, { status: 403 });
-const ESTADOS = ["pendiente", "pagado"];
 
-// GET: pagos de un periodo, con resumen. ?periodo=JUL-2026
+const MESES = { ENE: 1, FEB: 2, MAR: 3, ABR: 4, MAY: 5, JUN: 6, JUL: 7, AGO: 8, SEP: 9, OCT: 10, NOV: 11, DIC: 12 };
+const fmt = (d) => d.toISOString().slice(0, 10);
+function rangoPeriodo(periodo) {
+  const m = String(periodo || "").toUpperCase().match(/^([A-Z]{3})-?(\d{4})$/);
+  if (!m) return null;
+  const mes = MESES[m[1]];
+  const anio = parseInt(m[2], 10);
+  if (!mes || !anio) return null;
+  return { inicio: new Date(Date.UTC(anio, mes - 1, 1)), fin: new Date(Date.UTC(anio, mes, 0)) };
+}
+
+// GET: pago por maestro calculado desde la asistencia (sesiones impartidas). ?periodo=JUL-2026
 export async function GET(req) {
   let sb;
   try { sb = supa(); } catch { return mant(); }
@@ -25,82 +37,53 @@ export async function GET(req) {
 
   const url = new URL(req.url);
   const periodo = (url.searchParams.get("periodo") || "JUL-2026").trim();
+  const rango = rangoPeriodo(periodo);
 
-  const { data: pagos } = await sb.from("pagos_maestro").select("id, maestro_id, group_id, periodo, nivel, monto, estado").eq("periodo", periodo);
+  // Sesiones impartidas del periodo.
+  let sq = sb.from("sesiones_clase").select("maestro_id, duracion_horas, estado").eq("estado", "impartida");
+  if (rango) sq = sq.gte("fecha", fmt(rango.inicio)).lte("fecha", fmt(rango.fin));
+  const { data: ses } = await sq;
+
+  const agg = {};
+  (ses || []).forEach((s) => {
+    if (!s.maestro_id) return;
+    const h = Number(s.duracion_horas) || 0;
+    if (!agg[s.maestro_id]) agg[s.maestro_id] = { clases: 0, horas: 0 };
+    agg[s.maestro_id].clases += 1;
+    agg[s.maestro_id].horas += h;
+  });
+
   const { data: maestros } = await sb.from("usuarios").select("id, nombre").eq("rol_codigo", "maestro");
-  const { data: groups } = await sb.from("groups").select("id, codigo, nivel, maestro_id, activo");
-
   const mMap = {}; (maestros || []).forEach((m) => { mMap[m.id] = m.nombre; });
-  const gMap = {}; (groups || []).forEach((g) => { gMap[g.id] = g; });
 
-  const rows = (pagos || [])
-    .map((p) => ({
-      id: p.id,
-      maestro_id: p.maestro_id,
-      maestro: mMap[p.maestro_id] || "—",
-      group_id: p.group_id,
-      grupo: gMap[p.group_id]?.codigo || "—",
-      nivel: p.nivel || (gMap[p.group_id]?.nivel ?? "—"),
-      monto: p.monto != null ? Number(p.monto) : 0,
-      estado: p.estado,
-    }))
-    .sort((a2, b2) => (a2.maestro || "").localeCompare(b2.maestro || "") || (a2.grupo || "").localeCompare(b2.grupo || ""));
+  // Estado de pago por maestro (fila resumen del periodo: group_id null).
+  const { data: pagos } = await sb.from("pagos_maestro").select("maestro_id, estado").eq("periodo", periodo).is("group_id", null);
+  const pMap = {}; (pagos || []).forEach((p) => { pMap[p.maestro_id] = p.estado; });
 
-  const conPago = new Set((pagos || []).map((p) => p.group_id));
-  const generables = (groups || []).filter((g) => g.activo && g.maestro_id && !conPago.has(g.id)).length;
+  const rows = Object.entries(agg).map(([mid, v]) => ({
+    maestro_id: mid,
+    maestro: mMap[mid] || "—",
+    clases: v.clases,
+    horas: v.horas,
+    monto: v.horas * TARIFA_HORA,
+    estado: pMap[mid] || "pendiente",
+  })).sort((x, y) => (x.maestro || "").localeCompare(y.maestro || ""));
 
   const total = rows.reduce((s, r) => s + r.monto, 0);
   const pagado = rows.filter((r) => r.estado === "pagado").reduce((s, r) => s + r.monto, 0);
 
-  const periodos = Array.from(new Set([...(groups || []).map(() => null), periodo].filter(Boolean)));
   const { data: gper } = await sb.from("groups").select("periodo");
-  (gper || []).forEach((x) => { if (x.periodo && !periodos.includes(x.periodo)) periodos.push(x.periodo); });
+  const periodos = Array.from(new Set([...(gper || []).map((p) => p.periodo).filter(Boolean), periodo]));
 
   return NextResponse.json({
-    rows, periodo, periodos, generables,
+    rows, periodo, periodos,
     total, pagado, pendiente: total - pagado,
+    tarifa_hora: TARIFA_HORA,
     puede_procesar: a.permisos.includes("PAGOM_PROCESAR"),
   });
 }
 
-// POST: genera los pagos faltantes del periodo desde la cotización por nivel. Body { periodo }.
-export async function POST(req) {
-  let sb;
-  try { sb = supa(); } catch { return mant(); }
-  const a = await actor(sb, req);
-  if (!a) return noAuth();
-  if (!a.permisos.includes("PAGOM_PROCESAR")) return noPerm();
-
-  let b;
-  try { b = await req.json(); } catch { b = {}; }
-  const periodo = String(b.periodo || "JUL-2026").trim();
-
-  const { data: groups } = await sb.from("groups").select("id, nivel, maestro_id").eq("activo", true).not("maestro_id", "is", null);
-  const { data: cotis } = await sb.from("cotizaciones_maestro").select("maestro_id, nivel, monto");
-  const cotMap = {}; (cotis || []).forEach((c) => { cotMap[c.maestro_id + "|" + c.nivel] = Number(c.monto); });
-
-  const { data: existentes } = await sb.from("pagos_maestro").select("group_id").eq("periodo", periodo);
-  const yaTiene = new Set((existentes || []).map((p) => p.group_id));
-
-  const nuevos = (groups || [])
-    .filter((g) => !yaTiene.has(g.id))
-    .map((g) => ({
-      maestro_id: g.maestro_id,
-      group_id: g.id,
-      periodo,
-      nivel: g.nivel,
-      monto: cotMap[g.maestro_id + "|" + g.nivel] || 0,
-      estado: "pendiente",
-    }));
-
-  if (nuevos.length > 0) {
-    const { error } = await sb.from("pagos_maestro").insert(nuevos);
-    if (error) return NextResponse.json({ error: "No se pudieron generar los pagos." }, { status: 400 });
-  }
-  return NextResponse.json({ ok: true, creados: nuevos.length });
-}
-
-// PATCH: cambia estado o monto de un pago. Body { id, estado?, monto? }.
+// PATCH: marca el pago de un maestro (pagado/pendiente) para el periodo. Body { maestro_id, periodo, estado, monto }.
 export async function PATCH(req) {
   let sb;
   try { sb = supa(); } catch { return mant(); }
@@ -110,23 +93,20 @@ export async function PATCH(req) {
 
   let b;
   try { b = await req.json(); } catch { return NextResponse.json({ error: "Solicitud no válida." }, { status: 400 }); }
-  const id = String(b.id || "");
-  if (!id) return NextResponse.json({ error: "Falta el identificador." }, { status: 400 });
+  const maestro_id = String(b.maestro_id || "");
+  const periodo = String(b.periodo || "").trim();
+  const estado = String(b.estado || "").trim();
+  const monto = Number(b.monto) || 0;
+  if (!maestro_id || !periodo) return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
+  if (!["pendiente", "pagado"].includes(estado)) return NextResponse.json({ error: "Estado no válido." }, { status: 400 });
 
-  const patch = { updated_at: new Date().toISOString() };
-  if ("estado" in b) {
-    const e = String(b.estado).trim();
-    if (!ESTADOS.includes(e)) return NextResponse.json({ error: "Estado no válido." }, { status: 400 });
-    patch.estado = e;
+  const { data: ex } = await sb.from("pagos_maestro").select("id").eq("maestro_id", maestro_id).eq("periodo", periodo).is("group_id", null).limit(1);
+  if (ex && ex[0]) {
+    const { error } = await sb.from("pagos_maestro").update({ estado, monto, updated_at: new Date().toISOString() }).eq("id", ex[0].id);
+    if (error) return NextResponse.json({ error: "No se pudo actualizar el pago." }, { status: 400 });
+  } else {
+    const { error } = await sb.from("pagos_maestro").insert({ maestro_id, periodo, group_id: null, nivel: null, monto, estado });
+    if (error) return NextResponse.json({ error: "No se pudo guardar el pago." }, { status: 400 });
   }
-  if ("monto" in b) {
-    const n = Number(b.monto);
-    if (isNaN(n) || n < 0) return NextResponse.json({ error: "Monto no válido." }, { status: 400 });
-    patch.monto = n;
-  }
-  if (Object.keys(patch).length <= 1) return NextResponse.json({ error: "Nada que actualizar." }, { status: 400 });
-
-  const { error } = await sb.from("pagos_maestro").update(patch).eq("id", id);
-  if (error) return NextResponse.json({ error: "No se pudo actualizar el pago." }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
