@@ -672,10 +672,14 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
     codigo: g.codigo || "", periodo: g.periodo || periodos[0] || "JUL-2026",
     nivel: g.nivel || "", maestro: g.maestro || "", horario: g.horario || "",
     cupo: g.cupo != null ? String(g.cupo) : "", liga_meet: g.liga_meet || "",
+    hora_inicio: (g.hora_inicio || "").slice(0, 5),
+    duracion_horas: g.duracion_horas != null ? String(g.duracion_horas) : "",
+    dias: g.dias ? String(g.dias).split(",").map((x) => x.trim()).filter(Boolean) : [],
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setV((s) => ({ ...s, [k]: e.target.value }));
+  const toggleDia = (n) => setV((s) => ({ ...s, dias: s.dias.includes(n) ? s.dias.filter((d) => d !== n) : [...s.dias, n] }));
   const titulos = { nuevo: "Nuevo grupo", editar: "Editar grupo", borrar: "Borrar grupo" };
 
   async function enviar(e) {
@@ -685,10 +689,10 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
       if (modal.tipo === "borrar") {
         r = await fetch("/api/panel/grupos", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: g.id }) });
       } else if (modal.tipo === "nuevo") {
-        r = await fetch("/api/panel/grupos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: v.codigo, periodo: v.periodo, nivel: v.nivel, maestro: v.maestro, horario: v.horario, cupo: v.cupo, liga_meet: v.liga_meet }) });
+        r = await fetch("/api/panel/grupos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: v.codigo, periodo: v.periodo, nivel: v.nivel, maestro: v.maestro, horario: v.horario, cupo: v.cupo, liga_meet: v.liga_meet, dias: v.dias.join(","), hora_inicio: v.hora_inicio, duracion_horas: v.duracion_horas }) });
       } else {
         const body = { id: g.id };
-        if (puedeEditar) { body.nivel = v.nivel; body.horario = v.horario; body.cupo = v.cupo; body.liga_meet = v.liga_meet; }
+        if (puedeEditar) { body.nivel = v.nivel; body.horario = v.horario; body.cupo = v.cupo; body.liga_meet = v.liga_meet; body.dias = v.dias.join(","); body.hora_inicio = v.hora_inicio; body.duracion_horas = v.duracion_horas; }
         if (puedeMaestro) { body.maestro = v.maestro; }
         r = await fetch("/api/panel/grupos", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
@@ -717,7 +721,26 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
             </div>
             <input className="u-inp" placeholder="Maestro" value={v.maestro} onChange={set("maestro")} list="lista-maestros" />
             <datalist id="lista-maestros">{maestros.map((m) => <option key={m} value={m} />)}</datalist>
-            <input className="u-inp" placeholder="Horario (ej. 5:00 pm - 7:00 pm)" value={v.horario} onChange={set("horario")} />
+            <input className="u-inp" placeholder="Horario (texto, ej. 5:00 pm - 7:00 pm)" value={v.horario} onChange={set("horario")} />
+
+            <div style={{ marginTop: 6, fontWeight: 700, fontSize: 13, color: "var(--texto)" }}>Horario semanal <span style={{ fontWeight: 400, color: "var(--gris)" }}>(para el calendario y el pago)</span></div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+              {[["1", "Lun"], ["2", "Mar"], ["3", "Mié"], ["4", "Jue"], ["5", "Vie"], ["6", "Sáb"], ["7", "Dom"]].map(([n, lbl]) => (
+                <button type="button" key={n} onClick={() => toggleDia(n)}
+                  style={{ padding: "6px 11px", borderRadius: 8, border: "1px solid var(--borde)", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", background: v.dias.includes(n) ? "var(--naranja)" : "#fff", color: v.dias.includes(n) ? "#fff" : "var(--texto)" }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+              <label style={{ flex: "1 1 130px", fontSize: 12, color: "var(--gris)" }}>Hora de inicio
+                <input className="u-inp" style={{ marginTop: 3 }} type="time" value={v.hora_inicio} onChange={set("hora_inicio")} />
+              </label>
+              <label style={{ flex: "1 1 130px", fontSize: 12, color: "var(--gris)" }}>Duración (horas)
+                <input className="u-inp" style={{ marginTop: 3 }} type="number" min="0" step="0.5" placeholder="2" value={v.duracion_horas} onChange={set("duracion_horas")} />
+              </label>
+            </div>
+
             <input className="u-inp" placeholder="Liga de Google Meet (https://…)" value={v.liga_meet} onChange={set("liga_meet")} />
           </>
         )}
