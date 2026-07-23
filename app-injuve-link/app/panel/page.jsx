@@ -302,6 +302,43 @@ function Dashboard({ u }) {
         ))}
       </div>
       {err && <p style={{ marginTop: 16, fontSize: 13, color: "#B3261E" }}>No se pudieron cargar las métricas.</p>}
+
+      {d && Array.isArray(d.grupos_lista) && (
+        <>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--negro)", marginTop: 34, marginBottom: 2 }}>Grupos del programa</h2>
+          <p style={{ color: "var(--gris)", marginBottom: 16, fontSize: 14 }}>Maestro, horario e inscritos por grupo activo.</p>
+          <div className="u-card">
+            <div className="u-tablewrap">
+              <table className="u-table">
+                <thead>
+                  <tr>
+                    <th>Grupo</th><th>Nivel</th><th>Maestro</th><th>Horario</th>
+                    <th style={{ textAlign: "center" }}>Inscritos</th><th>Clase</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.grupos_lista.map((g) => (
+                    <tr key={g.codigo}>
+                      <td style={{ fontWeight: 700 }}>{g.codigo}</td>
+                      <td><span className="u-rol">Nivel {g.nivel}</span></td>
+                      <td>{g.maestro || "—"}</td>
+                      <td style={{ color: "var(--gris)" }}>{g.horario || "—"}</td>
+                      <td style={{ textAlign: "center", fontWeight: 600 }}>
+                        {g.inscritos}<span style={{ color: "var(--gris)", fontWeight: 400 }}> / {g.cupo}</span>
+                      </td>
+                      <td>
+                        {g.liga_meet
+                          ? <a href={g.liga_meet} target="_blank" rel="noopener noreferrer" style={{ color: "var(--naranja-osc)", fontWeight: 700 }}>Meet ↗</a>
+                          : <span style={{ color: "var(--gris)" }}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
