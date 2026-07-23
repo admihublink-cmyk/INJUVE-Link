@@ -158,6 +158,32 @@ export default function Alumno() {
           </section>
         </div>
 
+        {Array.isArray(data.sesiones) && data.sesiones.length > 0 && (
+          <section className="al-card entra d3" style={{ marginTop: 14 }}>
+            <h3>Próximas clases</h3>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+              {data.sesiones.map((s, i) => {
+                const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+                const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+                const dt = new Date(s.fecha + "T00:00:00");
+                const fechaTxt = DIAS[dt.getDay()] + " " + dt.getDate() + " " + MES[dt.getMonth()];
+                const reprog = s.estado === "reprogramada" || s.reprogramada_de;
+                let antes = "";
+                if (s.reprogramada_de) { const o = new Date(s.reprogramada_de + "T00:00:00"); antes = " (antes " + o.getDate() + " " + MES[o.getMonth()] + ")"; }
+                return (
+                  <li key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: reprog ? "rgba(241,139,17,0.13)" : "rgba(0,0,0,0.035)", borderRadius: 12, padding: "10px 14px" }}>
+                    <div>
+                      <div style={{ fontWeight: 700, textTransform: "capitalize" }}>{fechaTxt}</div>
+                      <div style={{ fontSize: 13, color: "var(--gris)" }}>{(s.hora || "").slice(0, 5)} h{reprog ? " · Reprogramada" + antes : ""}</div>
+                    </div>
+                    {s.link_meet && <a className="btn btn-cta" style={{ padding: "7px 14px", fontSize: 13 }} href={s.link_meet} target="_blank" rel="noopener noreferrer">Entrar</a>}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         <p className="al-ayuda">
           ¿Algo no cuadra? Escríbenos por WhatsApp al{" "}
           <a href="https://wa.me/528119039372" target="_blank" rel="noopener noreferrer">81 1903 9372</a>.
