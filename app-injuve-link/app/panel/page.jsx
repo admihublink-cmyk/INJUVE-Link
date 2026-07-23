@@ -267,6 +267,7 @@ function Shell({ sesion, onSalir }) {
             : modActiva?.id === "inscripciones" ? <Inscripciones />
             : modActiva?.id === "grupos" ? <Grupos />
             : modActiva?.id === "maestros" ? <Maestros />
+            : modActiva?.id === "pagos" ? <Pagos />
             : <Modulo mod={modActiva} />}
         </main>
       </div>
@@ -886,6 +887,135 @@ function MaestroModal({ maestro, niveles, puedeEditar, puedeCotizar, onClose, on
           {(puedeEditar || puedeCotizar) && <button type="submit" className="u-btn" disabled={busy}>{busy ? "…" : "Guardar"}</button>}
         </div>
       </form>
+    </div>
+  );
+}
+
+function Pagos() {
+  const [data, setData] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [periodo, setPeriodo] = useState("JUL-2026");
+  const [busy, setBusy] = useState(false);
+
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const r = await fetch("/api/panel/pagos?periodo=" + encodeURIComponent(periodo));
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudieron cargar los pagos.");
+      setData(d);
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [periodo]);
+
+  async function generar() {
+    setBusy(true); setError("");
+    try {
+      const r = await fetch("/api/panel/pagos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ periodo }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudieron generar los pagos.");
+      cargar();
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  }
+
+  async function actualizar(p, cambios) {
+    setError("");
+    try {
+      const r = await fetch("/api/panel/pagos", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, ...cambios }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo actualizar.");
+      cargar();
+    } catch (e) { setError(e.message); }
+  }
+
+  const rows = data?.rows || [];
+  const puede = data?.puede_procesar;
+  const money = (n) => "$" + Number(n || 0).toLocaleString("es-MX");
+
+  return (
+    <div>
+      <div className="u-head">
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>💵 Pago a maestros</h1>
+          <p style={{ color: "var(--gris)" }}>Genera y controla los pagos por grupo, según la cotización por nivel.</p>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <select className="u-sel" style={{ marginTop: 0, width: "auto" }} value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
+            {(data?.periodos && data.periodos.length ? data.periodos : ["JUL-2026"]).map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          {puede && data?.generables > 0 && <button className="u-btn" onClick={generar} disabled={busy}>{busy ? "…" : `Generar pagos (${data.generables})`}</button>}
+        </div>
+      </div>
+
+      {data && rows.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 14, marginBottom: 18 }}>
+          {[["Total del periodo", data.total, "var(--naranja-osc)"], ["Pagado", data.pagado, "#1B7A3D"], ["Pendiente", data.pendiente, "#B3261E"]].map(([t, v, c]) => (
+            <div key={t} style={{ background: "#fff", border: "1px solid var(--borde)", borderRadius: 14, padding: "16px 18px", boxShadow: "var(--sombra)" }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: c, fontFamily: "var(--font-titulo),sans-serif" }}>{money(v)}</div>
+              <div style={{ fontSize: 13, color: "var(--gris)", marginTop: 3 }}>{t}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
+
+      <div className="u-card">
+        {cargando ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
+        ) : !rows.length ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>
+            No hay pagos generados para {periodo}.
+            {puede && data?.generables > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <button className="u-btn" onClick={generar} disabled={busy}>{busy ? "…" : `Generar ${data.generables} pagos`}</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="u-tablewrap">
+            <table className="u-table">
+              <thead>
+                <tr><th>Maestro</th><th>Grupo</th><th>Nivel</th><th>Monto</th><th>Estado</th><th style={{ textAlign: "right" }}>Acción</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 600 }}>{p.maestro}</td>
+                    <td style={{ fontWeight: 700 }}>{p.grupo}</td>
+                    <td><span className="u-rol">{p.nivel}</span></td>
+                    <td>{puede ? <MontoInput valor={p.monto} onGuardar={(m) => actualizar(p, { monto: m })} /> : money(p.monto)}</td>
+                    <td><span className="u-badge" style={p.estado === "pagado" ? { background: "#E7F5EC", color: "#1B7A3D" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{p.estado}</span></td>
+                    <td>
+                      <div className="u-acts">
+                        {puede && <button className="u-mini" onClick={() => actualizar(p, { estado: p.estado === "pagado" ? "pendiente" : "pagado" })}>{p.estado === "pagado" ? "Marcar pendiente" : "Marcar pagado"}</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MontoInput({ valor, onGuardar }) {
+  const [v, setV] = useState(String(valor ?? 0));
+  useEffect(() => { setV(String(valor ?? 0)); }, [valor]);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+      <span style={{ color: "var(--gris)" }}>$</span>
+      <input type="number" min="0" step="0.01" value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => { if (String(valor ?? 0) !== v) onGuardar(Number(v)); }}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } }}
+        style={{ width: 100, padding: "5px 8px", borderRadius: 8, border: "1px solid var(--borde)", fontSize: 13.5, fontFamily: "inherit" }} />
     </div>
   );
 }
