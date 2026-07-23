@@ -921,6 +921,7 @@ function Pagos() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [periodo, setPeriodo] = useState("JUL-2026");
+  const [detalle, setDetalle] = useState(null);
 
   async function cargar() {
     setCargando(true); setError("");
@@ -996,6 +997,7 @@ function Pagos() {
                     <td><span className="u-badge" style={p.estado === "pagado" ? { background: "#E7F5EC", color: "#1B7A3D" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{p.estado}</span></td>
                     <td>
                       <div className="u-acts">
+                        <button className="u-mini" onClick={() => setDetalle(p)}>Ver detalle</button>
                         {puede && <button className="u-mini" onClick={() => marcar(p, p.estado === "pagado" ? "pendiente" : "pagado")}>{p.estado === "pagado" ? "Marcar pendiente" : "Marcar pagado"}</button>}
                       </div>
                     </td>
@@ -1005,6 +1007,73 @@ function Pagos() {
             </table>
           </div>
         )}
+      </div>
+
+      {detalle && <ReporteMaestroModal pago={detalle} periodo={periodo} onClose={() => setDetalle(null)} />}
+    </div>
+  );
+}
+
+function ReporteMaestroModal({ pago, periodo, onClose }) {
+  const money = (n) => "$" + Number(n || 0).toLocaleString("es-MX");
+  const detalle = pago.detalle || [];
+  const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const fmtF = (f) => { const dt = new Date(f + "T00:00:00"); return DIAS[dt.getDay()] + " " + dt.getDate() + " " + MES[dt.getMonth()]; };
+
+  function descargar() {
+    const filas = [["Fecha", "Grupo", "Nivel", "Horas", "Monto"]];
+    detalle.forEach((d) => filas.push([d.fecha, d.grupo, d.nivel, d.horas, d.monto]));
+    filas.push(["", "", "TOTAL", pago.horas, pago.monto]);
+    const csv = filas.map((r) => r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "reporte_" + (pago.maestro || "maestro").replace(/\s+/g, "_") + "_" + periodo + ".csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="u-modal-bg" onClick={onClose}>
+      <div className="u-modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+          <div>
+            <h3>{pago.maestro}</h3>
+            <p style={{ color: "var(--gris)", fontSize: 13, marginTop: 2 }}>Clases impartidas · {periodo}</p>
+          </div>
+          <button className="u-btn sec" onClick={descargar}>⬇ Descargar</button>
+        </div>
+
+        <div style={{ display: "flex", gap: 18, margin: "12px 0 14px" }}>
+          <div><b style={{ fontSize: 20, color: "var(--naranja-osc)" }}>{pago.clases}</b> <span style={{ color: "var(--gris)", fontSize: 13 }}>clases</span></div>
+          <div><b style={{ fontSize: 20, color: "var(--naranja-osc)" }}>{pago.horas}</b> <span style={{ color: "var(--gris)", fontSize: 13 }}>horas</span></div>
+          <div><b style={{ fontSize: 20, color: "var(--naranja-osc)" }}>{money(pago.monto)}</b></div>
+        </div>
+
+        <div className="u-tablewrap" style={{ maxHeight: 320, overflowY: "auto" }}>
+          <table className="u-table">
+            <thead><tr><th>Fecha</th><th>Grupo</th><th>Nivel</th><th style={{ textAlign: "center" }}>Horas</th><th>Monto</th></tr></thead>
+            <tbody>
+              {detalle.length === 0
+                ? <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--gris)", padding: 20 }}>Sin clases impartidas.</td></tr>
+                : detalle.map((d, i) => (
+                  <tr key={i}>
+                    <td style={{ textTransform: "capitalize" }}>{fmtF(d.fecha)}</td>
+                    <td style={{ fontWeight: 700 }}>{d.grupo}</td>
+                    <td><span className="u-rol">{d.nivel}</span></td>
+                    <td style={{ textAlign: "center" }}>{d.horas}</td>
+                    <td style={{ fontWeight: 600 }}>{money(d.monto)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+          <button type="button" className="u-btn" onClick={onClose}>Cerrar</button>
+        </div>
       </div>
     </div>
   );
