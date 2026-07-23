@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef } from "react";
-import * as THREE from "three";
 
 const CAPAS = 26;
 const EXTRUSION = 0.16;
@@ -40,7 +39,7 @@ const FRAGMENT = `
   }
 `;
 
-function crearRuido() {
+function crearRuido(THREE) {
   const N = 1024;
   const c = document.createElement("canvas");
   c.width = c.height = N;
@@ -76,94 +75,99 @@ export default function Globo3D({ size = 320, conTexto = true }) {
   useEffect(() => {
     const cont = contRef.current;
     if (!cont) return;
+    let vivo = true;
+    let limpiar = () => {};
 
-    const escena = new THREE.Scene();
-    const camara = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-    camara.position.z = 7.0;
+    // Three.js se carga bajo demanda (code-split) para no pesar en la carga inicial.
+    import("three")
+      .then((THREE) => {
+        if (!vivo || contRef.current !== cont) return;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    renderer.setSize(size, size);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    cont.appendChild(renderer.domElement);
+        const escena = new THREE.Scene();
+        const camara = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+        camara.position.z = 7.0;
 
-    const grupo = new THREE.Group();
-    grupo.rotation.x = 0.16;
-    escena.add(grupo);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+        renderer.setSize(size, size);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        cont.appendChild(renderer.domElement);
 
-    const tNoise = crearRuido();
-    const geo = new THREE.SphereGeometry(1.92, 56, 56);
+        const grupo = new THREE.Group();
+        grupo.rotation.x = 0.16;
+        escena.add(grupo);
 
-    const nucleo = new THREE.Mesh(
-      geo,
-      new THREE.MeshStandardMaterial({ color: 0x1d4715, roughness: 1 })
-    );
-    grupo.add(nucleo);
+        const tNoise = crearRuido(THREE);
+        const geo = new THREE.SphereGeometry(1.92, 56, 56);
 
-    const materiales = [];
-    for (let i = 1; i <= CAPAS; i++) {
-      const mat = new THREE.ShaderMaterial({
-        vertexShader: VERTEX,
-        fragmentShader: FRAGMENT,
-        uniforms: {
-          uH: { value: i / CAPAS },
-          uTime: { value: 0 },
-          tNoise: { value: tNoise },
-        },
-      });
-      materiales.push(mat);
-      grupo.add(new THREE.Mesh(geo, mat));
-    }
+        const nucleo = new THREE.Mesh(
+          geo,
+          new THREE.MeshStandardMaterial({ color: 0x1d4715, roughness: 1 })
+        );
+        grupo.add(nucleo);
 
-    escena.add(new THREE.AmbientLight(0xffffff, 1.2));
-    const sol = new THREE.DirectionalLight(0xfff3e0, 2.2);
-    sol.position.set(4, 3.2, 5);
-    escena.add(sol);
+        const materiales = [];
+        for (let i = 1; i <= CAPAS; i++) {
+          const mat = new THREE.ShaderMaterial({
+            vertexShader: VERTEX,
+            fragmentShader: FRAGMENT,
+            uniforms: {
+              uH: { value: i / CAPAS },
+              uTime: { value: 0 },
+              tNoise: { value: tNoise },
+            },
+          });
+          materiales.push(mat);
+          grupo.add(new THREE.Mesh(geo, mat));
+        }
 
-    const reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const reloj = new THREE.Clock();
-    let raf = null;
-    const animar = () => {
-      raf = requestAnimationFrame(animar);
-      if (!reducir) {
-        const d = Math.min(reloj.getDelta(), 0.05);
-        const t = reloj.elapsedTime;
-        grupo.rotation.y += d * 0.1;
-        grupo.position.y = Math.sin(t * 0.5) * 0.04;
-        for (const m of materiales) m.uniforms.uTime.value = t;
-      }
-      renderer.render(escena, camara);
-    };
-    const arrancar = () => {
-      if (raf === null) {
-        reloj.getDelta();
-        animar();
-      }
-    };
-    const parar = () => {
-      if (raf !== null) {
-        cancelAnimationFrame(raf);
-        raf = null;
-      }
-    };
-    const observador = new IntersectionObserver(
-      ([e]) => (e.isIntersecting && !document.hidden ? arrancar() : parar()),
-      { threshold: 0.01 }
-    );
-    observador.observe(cont);
-    const alCambiarVisibilidad = () => (document.hidden ? parar() : arrancar());
-    document.addEventListener("visibilitychange", alCambiarVisibilidad);
+        escena.add(new THREE.AmbientLight(0xffffff, 1.2));
+        const sol = new THREE.DirectionalLight(0xfff3e0, 2.2);
+        sol.position.set(4, 3.2, 5);
+        escena.add(sol);
+
+        const reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const reloj = new THREE.Clock();
+        let raf = null;
+        const animar = () => {
+          raf = requestAnimationFrame(animar);
+          if (!reducir) {
+            const dd = Math.min(reloj.getDelta(), 0.05);
+            const t = reloj.elapsedTime;
+            grupo.rotation.y += dd * 0.1;
+            grupo.position.y = Math.sin(t * 0.5) * 0.04;
+            for (const m of materiales) m.uniforms.uTime.value = t;
+          }
+          renderer.render(escena, camara);
+        };
+        const arrancar = () => { if (raf === null) { reloj.getDelta(); animar(); } };
+        const parar = () => { if (raf !== null) { cancelAnimationFrame(raf); raf = null; } };
+
+        const observador = new IntersectionObserver(
+          ([e]) => (e.isIntersecting && !document.hidden ? arrancar() : parar()),
+          { threshold: 0.01 }
+        );
+        observador.observe(cont);
+        const alCambiarVisibilidad = () => (document.hidden ? parar() : arrancar());
+        document.addEventListener("visibilitychange", alCambiarVisibilidad);
+
+        limpiar = () => {
+          observador.disconnect();
+          document.removeEventListener("visibilitychange", alCambiarVisibilidad);
+          parar();
+          renderer.dispose();
+          geo.dispose();
+          nucleo.material.dispose();
+          for (const m of materiales) m.dispose();
+          tNoise.dispose();
+          if (renderer.domElement.parentNode === cont) cont.removeChild(renderer.domElement);
+        };
+      })
+      .catch(() => {});
 
     return () => {
-      observador.disconnect();
-      document.removeEventListener("visibilitychange", alCambiarVisibilidad);
-      parar();
-      renderer.dispose();
-      geo.dispose();
-      nucleo.material.dispose();
-      for (const m of materiales) m.dispose();
-      tNoise.dispose();
-      if (renderer.domElement.parentNode === cont) cont.removeChild(renderer.domElement);
+      vivo = false;
+      limpiar();
     };
   }, [size]);
 
