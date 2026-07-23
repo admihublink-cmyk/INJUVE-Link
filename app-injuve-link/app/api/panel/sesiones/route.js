@@ -124,29 +124,46 @@ export async function POST(req) {
   return NextResponse.json({ ok: true, creados: nuevos.length });
 }
 
-// PATCH: tomar asistencia (impartida) o deshacer (programada). Body { id, estado }.
+// PATCH: tomar asistencia (body { id, estado }) o reprogramar (body { id, fecha, hora? }).
 export async function PATCH(req) {
   let sb;
   try { sb = supa(); } catch { return mant(); }
   const a = await actor(sb, req);
   if (!a) return noAuth();
-  if (!a.permisos.includes("ASIST_REGISTRAR")) return noPerm();
 
   let b;
   try { b = await req.json(); } catch { return NextResponse.json({ error: "Solicitud no válida." }, { status: 400 }); }
   const id = String(b.id || "");
   if (!id) return NextResponse.json({ error: "Falta el identificador." }, { status: 400 });
 
-  const { data: ses } = await sb.from("sesiones_clase").select("id, maestro_id").eq("id", id).maybeSingle();
+  const { data: ses } = await sb.from("sesiones_clase").select("id, maestro_id, fecha").eq("id", id).maybeSingle();
   if (!ses) return NextResponse.json({ error: "Sesión no encontrada." }, { status: 404 });
-  // El maestro solo puede sobre sus propias clases (admin con PROGRAMA_CONFIG puede sobre cualquiera).
-  if (ses.maestro_id !== a.id && !a.permisos.includes("PROGRAMA_CONFIG")) return noPerm();
+  const esAdmin = a.permisos.includes("PROGRAMA_CONFIG");
+  // El maestro solo puede sobre sus propias clases (admin puede sobre cualquiera).
+  if (ses.maestro_id !== a.id && !esAdmin) return noPerm();
 
-  const estado = String(b.estado || "").trim();
-  if (!["impartida", "programada"].includes(estado)) return NextResponse.json({ error: "Estado no válido." }, { status: 400 });
+  // Reprogramar: mover la clase a otra fecha (y opcionalmente otra hora).
+  if (b.fecha != null) {
+    if (!a.permisos.includes("SESION_AGENDAR") && !esAdmin) return noPerm();
+    const fecha = String(b.fecha).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return NextResponse.json({ error: "Fecha no válida." }, { status: 400 });
+    const patch = { estado: "reprogramada", fecha, reprogramada_de: ses.fecha };
+    if (b.hora != null && String(b.hora).trim()) patch.hora = String(b.hora).trim();
+    const { error } = await sb.from("sesiones_clase").update(patch).eq("id", id);
+    if (error) return NextResponse.json({ error: "No se pudo reprogramar la clase." }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
 
-  const patch = { estado, impartida_at: estado === "impartida" ? new Date().toISOString() : null };
-  const { error } = await sb.from("sesiones_clase").update(patch).eq("id", id);
-  if (error) return NextResponse.json({ error: "No se pudo registrar la asistencia." }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  // Tomar asistencia / deshacer.
+  if (b.estado != null) {
+    if (!a.permisos.includes("ASIST_REGISTRAR")) return noPerm();
+    const estado = String(b.estado).trim();
+    if (!["impartida", "programada"].includes(estado)) return NextResponse.json({ error: "Estado no válido." }, { status: 400 });
+    const patch = { estado, impartida_at: estado === "impartida" ? new Date().toISOString() : null };
+    const { error } = await sb.from("sesiones_clase").update(patch).eq("id", id);
+    if (error) return NextResponse.json({ error: "No se pudo registrar la asistencia." }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: "Nada que actualizar." }, { status: 400 });
 }
