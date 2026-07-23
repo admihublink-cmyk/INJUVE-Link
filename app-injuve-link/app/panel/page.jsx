@@ -11,6 +11,15 @@ const ROL_NOMBRE = {
   alumno: "Alumno",
 };
 
+// Etiqueta corta para las insignias de rol en la tabla de usuarios.
+const ROL_CORTO = {
+  odp: "ODP · Super Admin",
+  administracion: "Administración",
+  coordinador_atencion: "Coordinador",
+  maestro: "Maestro",
+  agente_atencion: "Agente",
+};
+
 // Cada módulo se muestra en el menú lateral si el usuario tiene el permiso disparador.
 const MODULOS = [
   { id: "dashboard", perm: "DASHBOARD_VER", nombre: "Dashboard", icon: "📊", desc: "Alumnos y grupos activos, métricas del programa." },
@@ -194,6 +203,36 @@ function Shell({ sesion, onSalir }) {
           .pnl-overlay.abierto{display:block;position:fixed;inset:60px 0 0 0;background:rgba(0,0,0,.35);z-index:25;}
           .pnl-main{padding:22px 18px;}
         }
+        /* Módulo Usuarios */
+        .u-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+        .u-btn{background:var(--naranja);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+        .u-btn:hover{background:var(--naranja-osc);}
+        .u-btn.sec{background:#fff;color:var(--texto);border:1px solid var(--borde);}
+        .u-btn.sec:hover{background:#F4F1EC;}
+        .u-btn.dan{background:#B3261E;color:#fff;}
+        .u-btn.dan:hover{background:#8f1e18;}
+        .u-btn:disabled{opacity:.55;cursor:default;}
+        .u-card{background:#fff;border:1px solid var(--borde);border-radius:16px;overflow:hidden;box-shadow:var(--sombra);}
+        .u-tablewrap{overflow-x:auto;}
+        .u-table{width:100%;border-collapse:collapse;font-size:14px;}
+        .u-table th{text-align:left;padding:12px 16px;background:#FAF7F2;color:var(--gris);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--borde);white-space:nowrap;}
+        .u-table td{padding:12px 16px;border-bottom:1px solid var(--borde);vertical-align:middle;}
+        .u-table tr:last-child td{border-bottom:none;}
+        .u-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;}
+        .u-badge.on{background:#E7F5EC;color:#1B7A3D;}
+        .u-badge.off{background:#F1EEE9;color:#8A8178;}
+        .u-rol{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;background:var(--naranja-claro);color:var(--naranja-osc);white-space:nowrap;}
+        .u-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+        .u-mini{background:none;border:1px solid var(--borde);border-radius:8px;padding:5px 10px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--texto);font-family:inherit;white-space:nowrap;}
+        .u-mini:hover{background:#F4F1EC;}
+        .u-mini.dan{color:#B3261E;border-color:rgba(179,38,30,.3);}
+        .u-mini.dan:hover{background:rgba(179,38,30,.08);}
+        .u-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:600;padding:16px;}
+        .u-modal{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:440px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5);}
+        .u-modal h3{font-size:20px;font-weight:800;color:var(--negro);margin-bottom:2px;}
+        .u-inp,.u-sel{width:100%;padding:11px 13px;border:1px solid var(--borde);border-radius:10px;font-size:14.5px;margin-top:10px;font-family:inherit;background:#fff;color:var(--texto);}
+        .u-inp:focus,.u-sel:focus{outline:none;border-color:var(--naranja);}
+        .u-err{background:rgba(179,38,30,.1);color:#B3261E;border-radius:10px;padding:9px 13px;font-size:13.5px;margin-top:12px;}
       `}</style>
 
       <header className="pnl-top">
@@ -223,7 +262,9 @@ function Shell({ sesion, onSalir }) {
         </aside>
 
         <main className="pnl-main">
-          {modActiva?.id === "dashboard" ? <Dashboard u={u} /> : <Modulo mod={modActiva} />}
+          {modActiva?.id === "dashboard" ? <Dashboard u={u} />
+            : modActiva?.id === "usuarios" ? <Usuarios />
+            : <Modulo mod={modActiva} />}
         </main>
       </div>
     </div>
@@ -266,6 +307,176 @@ function Modulo({ mod }) {
         <p style={{ fontWeight: 800, color: "var(--texto)", fontSize: 17 }}>Módulo en construcción</p>
         <p style={{ fontSize: 14, color: "var(--gris)", marginTop: 4 }}>Lo estamos habilitando paso a paso.</p>
       </div>
+    </div>
+  );
+}
+
+function Usuarios() {
+  const [data, setData] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [modal, setModal] = useState(null); // { tipo:"nuevo"|"editar"|"pass"|"borrar", usuario }
+
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const r = await fetch("/api/panel/usuarios");
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudieron cargar los usuarios.");
+      setData(d);
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  useEffect(() => { cargar(); }, []);
+
+  async function toggleActivo(us) {
+    setError("");
+    try {
+      const r = await fetch("/api/panel/usuarios", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: us.id, activo: !us.activo }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo actualizar.");
+      cargar();
+    } catch (e) { setError(e.message); }
+  }
+
+  const puedeG = data?.puede_gestionar;
+  const puedeB = data?.puede_borrar;
+  const yo = data?.yo;
+
+  return (
+    <div>
+      <div className="u-head">
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>🔑 Usuarios y roles</h1>
+          <p style={{ color: "var(--gris)" }}>Da de alta al equipo: administración, maestros, coordinador y agentes.</p>
+        </div>
+        {puedeG && <button className="u-btn" onClick={() => setModal({ tipo: "nuevo" })}>+ Nuevo usuario</button>}
+      </div>
+
+      {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
+
+      <div className="u-card">
+        {cargando ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
+        ) : !data?.usuarios?.length ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Aún no hay usuarios.</div>
+        ) : (
+          <div className="u-tablewrap">
+            <table className="u-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th>
+                  <th style={{ textAlign: "right" }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.usuarios.map((us) => (
+                  <tr key={us.id}>
+                    <td style={{ fontWeight: 600 }}>
+                      {us.nombre}
+                      {us.id === yo && <span style={{ color: "var(--gris)", fontWeight: 400 }}> · tú</span>}
+                    </td>
+                    <td style={{ color: "var(--gris)" }}>{us.correo}</td>
+                    <td><span className="u-rol">{ROL_CORTO[us.rol_codigo] || us.rol_codigo}</span></td>
+                    <td><span className={"u-badge " + (us.activo ? "on" : "off")}>{us.activo ? "Activo" : "Inactivo"}</span></td>
+                    <td>
+                      <div className="u-acts">
+                        {puedeG && <button className="u-mini" onClick={() => setModal({ tipo: "editar", usuario: us })}>Editar</button>}
+                        {puedeG && <button className="u-mini" onClick={() => setModal({ tipo: "pass", usuario: us })}>Contraseña</button>}
+                        {puedeG && us.id !== yo && <button className="u-mini" onClick={() => toggleActivo(us)}>{us.activo ? "Desactivar" : "Activar"}</button>}
+                        {puedeB && us.id !== yo && <button className="u-mini dan" onClick={() => setModal({ tipo: "borrar", usuario: us })}>Borrar</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <UsuarioModal
+          modal={modal}
+          roles={data?.roles || []}
+          esYo={modal.usuario?.id === yo}
+          onClose={() => setModal(null)}
+          onDone={() => { setModal(null); cargar(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function UsuarioModal({ modal, roles, esYo, onClose, onDone }) {
+  const us = modal.usuario || {};
+  const [nombre, setNombre] = useState(us.nombre || "");
+  const [correo, setCorreo] = useState(us.correo || "");
+  const [rol, setRol] = useState(us.rol_codigo || roles[0]?.codigo || "administracion");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const titulos = { nuevo: "Nuevo usuario", editar: "Editar usuario", pass: "Cambiar contraseña", borrar: "Borrar usuario" };
+
+  async function enviar(e) {
+    e.preventDefault(); setError(""); setBusy(true);
+    try {
+      let r;
+      if (modal.tipo === "nuevo") {
+        r = await fetch("/api/panel/usuarios", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, correo, rol, password }) });
+      } else if (modal.tipo === "editar") {
+        r = await fetch("/api/panel/usuarios", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: us.id, nombre, correo, rol }) });
+      } else if (modal.tipo === "pass") {
+        r = await fetch("/api/panel/usuarios", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: us.id, password }) });
+      } else {
+        r = await fetch("/api/panel/usuarios", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: us.id }) });
+      }
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo completar.");
+      onDone();
+    } catch (err) { setError(err.message); setBusy(false); }
+  }
+
+  return (
+    <div className="u-modal-bg" onClick={onClose}>
+      <form className="u-modal" onClick={(e) => e.stopPropagation()} onSubmit={enviar}>
+        <h3>{titulos[modal.tipo]}</h3>
+
+        {modal.tipo === "borrar" ? (
+          <p style={{ color: "var(--gris)", marginTop: 8, fontSize: 14.5 }}>
+            ¿Seguro que quieres borrar a <b>{us.nombre}</b>? Esta acción no se puede deshacer. Si tiene registros asociados (grupos, casos, pagos…), mejor <b>desactívalo</b>.
+          </p>
+        ) : modal.tipo === "pass" ? (
+          <>
+            <p style={{ color: "var(--gris)", marginTop: 4, fontSize: 14 }}>Nueva contraseña para <b>{us.nombre}</b>.</p>
+            <input className="u-inp" type="password" placeholder="Nueva contraseña (mín. 8)" value={password}
+              onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+          </>
+        ) : (
+          <>
+            <input className="u-inp" placeholder="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            <input className="u-inp" type="email" placeholder="Correo" value={correo} onChange={(e) => setCorreo(e.target.value)} autoComplete="off" />
+            <select className="u-sel" value={rol} onChange={(e) => setRol(e.target.value)} disabled={esYo && modal.tipo === "editar"}>
+              {roles.map((r) => <option key={r.codigo} value={r.codigo}>{r.nombre}</option>)}
+            </select>
+            {esYo && modal.tipo === "editar" && <p style={{ color: "var(--gris)", fontSize: 12.5, marginTop: 6 }}>No puedes cambiar tu propio rol.</p>}
+            {modal.tipo === "nuevo" && <input className="u-inp" type="password" placeholder="Contraseña (mín. 8)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />}
+          </>
+        )}
+
+        {error && <div className="u-err">{error}</div>}
+
+        <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
+          <button type="button" className="u-btn sec" onClick={onClose}>Cancelar</button>
+          <button type="submit" className={"u-btn" + (modal.tipo === "borrar" ? " dan" : "")} disabled={busy}>
+            {busy ? "…" : modal.tipo === "borrar" ? "Sí, borrar" : modal.tipo === "pass" ? "Cambiar" : modal.tipo === "editar" ? "Guardar" : "Crear usuario"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
