@@ -15,6 +15,19 @@ const noAuth = () => NextResponse.json({ error: "No autenticado." }, { status: 4
 const noPerm = () => NextResponse.json({ error: "No tienes permiso para esta acción." }, { status: 403 });
 const ligaOk = (l) => /^https?:\/\//i.test(l);
 
+// Normaliza días a CSV ISO "1..7" (1=Lun). Acepta array o string.
+function normDias(v) {
+  if (v == null) return null;
+  if (Array.isArray(v)) v = v.join(",");
+  const s = String(v).split(",").map((x) => x.trim()).filter((x) => /^[1-7]$/.test(x));
+  return s.length ? Array.from(new Set(s)).sort().join(",") : null;
+}
+function normHora(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  return /^\d{1,2}:\d{2}/.test(s) ? s : null;
+}
+
 // Vincula el nombre de maestro a la cuenta de usuario (maestro_id) si coincide.
 async function buscarMaestroId(sb, nombre) {
   if (!nombre) return null;
@@ -32,7 +45,7 @@ export async function GET(req) {
 
   const { data: grupos, error } = await sb
     .from("groups")
-    .select("id, codigo, periodo, nivel, maestro, maestro_id, horario, cupo, liga_meet, activo")
+    .select("id, codigo, periodo, nivel, maestro, maestro_id, horario, cupo, liga_meet, activo, dias, hora_inicio, duracion_horas")
     .order("nivel", { ascending: true })
     .order("codigo", { ascending: true });
   if (error) return NextResponse.json({ error: "No se pudieron cargar los grupos." }, { status: 500 });
@@ -76,6 +89,10 @@ export async function POST(req) {
   const horario = String(b.horario || "").trim();
   const cupo = parseInt(b.cupo, 10);
   const liga_meet = String(b.liga_meet || "").trim();
+  const dias = normDias(b.dias);
+  const hora_inicio = normHora(b.hora_inicio);
+  const durNum = b.duracion_horas != null && b.duracion_horas !== "" ? Number(b.duracion_horas) : null;
+  const duracion_horas = durNum != null && !isNaN(durNum) && durNum >= 0 ? durNum : null;
   if (codigo.length < 1) return NextResponse.json({ error: "El código es obligatorio." }, { status: 400 });
   if (isNaN(cupo) || cupo < 0) return NextResponse.json({ error: "El cupo debe ser un número válido." }, { status: 400 });
   if (liga_meet && !ligaOk(liga_meet)) return NextResponse.json({ error: "La liga debe empezar con http:// o https://" }, { status: 400 });
@@ -84,6 +101,7 @@ export async function POST(req) {
   const { data, error } = await sb.from("groups").insert({
     codigo, periodo, nivel: nivel || null, maestro: maestro || null, maestro_id,
     horario: horario || null, cupo, liga_meet: liga_meet || null, activo: true,
+    dias, hora_inicio, duracion_horas,
   }).select("id").maybeSingle();
   if (error) {
     const dup = /duplicate|unique/i.test(error.message || "");
@@ -118,7 +136,7 @@ export async function PATCH(req) {
     patch.activo = !!b.activo;
   }
   // Datos de configuración (nivel, horario, cupo, liga_meet) -> GRUPO_CREAR.
-  const cfg = ["nivel", "horario", "cupo", "liga_meet"].some((k) => k in b);
+  const cfg = ["nivel", "horario", "cupo", "liga_meet", "dias", "hora_inicio", "duracion_horas"].some((k) => k in b);
   if (cfg) {
     if (!perms.includes("GRUPO_CREAR")) return noPerm();
     if ("nivel" in b) patch.nivel = b.nivel == null ? null : String(b.nivel).trim() || null;
@@ -132,6 +150,13 @@ export async function PATCH(req) {
       const l = b.liga_meet == null ? "" : String(b.liga_meet).trim();
       if (l && !ligaOk(l)) return NextResponse.json({ error: "La liga debe empezar con http:// o https://" }, { status: 400 });
       patch.liga_meet = l || null;
+    }
+    if ("dias" in b) patch.dias = normDias(b.dias);
+    if ("hora_inicio" in b) patch.hora_inicio = normHora(b.hora_inicio);
+    if ("duracion_horas" in b) {
+      const d = b.duracion_horas === "" || b.duracion_horas == null ? null : Number(b.duracion_horas);
+      if (d != null && (isNaN(d) || d < 0)) return NextResponse.json({ error: "Duración no válida." }, { status: 400 });
+      patch.duracion_horas = d;
     }
   }
 
