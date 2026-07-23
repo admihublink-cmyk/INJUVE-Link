@@ -1,0 +1,1 @@
+-- Seed de roles(7), permisos(63) y roles_permisos(124). Ver Supabase (aplicada 2026-07-22).

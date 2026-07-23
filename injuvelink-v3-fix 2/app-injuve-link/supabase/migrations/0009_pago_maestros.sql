@@ -1,0 +1,1 @@
+-- Pago a maestros: pagos_maestro, documentos_maestro (incl. cotizacion), evidencias_clase (aplicada 2026-07-22).

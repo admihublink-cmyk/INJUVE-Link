@@ -1,0 +1,1 @@
+-- Atención a becarios (casos_atencion+bitacora, semáforo), solicitudes_alumno, solicitudes_arco, mensajes(chat), avisos, contenido_publico (aplicada 2026-07-22).
