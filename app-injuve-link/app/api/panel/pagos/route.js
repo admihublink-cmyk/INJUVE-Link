@@ -39,18 +39,22 @@ export async function GET(req) {
   const periodo = (url.searchParams.get("periodo") || "JUL-2026").trim();
   const rango = rangoPeriodo(periodo);
 
-  // Sesiones impartidas del periodo.
-  let sq = sb.from("sesiones_clase").select("maestro_id, duracion_horas, estado").eq("estado", "impartida");
+  // Sesiones impartidas del periodo (con detalle para el reporte por maestro).
+  let sq = sb.from("sesiones_clase").select("maestro_id, fecha, group_id, duracion_horas, estado").eq("estado", "impartida");
   if (rango) sq = sq.gte("fecha", fmt(rango.inicio)).lte("fecha", fmt(rango.fin));
   const { data: ses } = await sq;
+
+  const { data: groupsRef } = await sb.from("groups").select("id, codigo, nivel");
+  const gRef = {}; (groupsRef || []).forEach((g) => { gRef[g.id] = g; });
 
   const agg = {};
   (ses || []).forEach((s) => {
     if (!s.maestro_id) return;
     const h = Number(s.duracion_horas) || 0;
-    if (!agg[s.maestro_id]) agg[s.maestro_id] = { clases: 0, horas: 0 };
+    if (!agg[s.maestro_id]) agg[s.maestro_id] = { clases: 0, horas: 0, detalle: [] };
     agg[s.maestro_id].clases += 1;
     agg[s.maestro_id].horas += h;
+    agg[s.maestro_id].detalle.push({ fecha: s.fecha, grupo: gRef[s.group_id]?.codigo || "—", nivel: gRef[s.group_id]?.nivel || "—", horas: h, monto: h * TARIFA_HORA });
   });
 
   const { data: maestros } = await sb.from("usuarios").select("id, nombre").eq("rol_codigo", "maestro");
@@ -67,6 +71,7 @@ export async function GET(req) {
     horas: v.horas,
     monto: v.horas * TARIFA_HORA,
     estado: pMap[mid] || "pendiente",
+    detalle: v.detalle.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "")),
   })).sort((x, y) => (x.maestro || "").localeCompare(y.maestro || ""));
 
   const total = rows.reduce((s, r) => s + r.monto, 0);
