@@ -10,7 +10,7 @@ async function actor(sb, req) {
   return { permisos: (perms || []).map((p) => p.permiso_codigo) };
 }
 
-// GET: métricas del dashboard (conteos en vivo).
+// GET: métricas del dashboard + lista de grupos (conteos en vivo).
 export async function GET(req) {
   let sb;
   try { sb = supa(); } catch { return NextResponse.json({ error: "El sistema está en mantenimiento." }, { status: 503 }); }
@@ -24,11 +24,35 @@ export async function GET(req) {
   };
 
   const alumnos = await contar(() => sb.from("enrollments").select("*", { count: "exact", head: true }).eq("activo", true));
-  const en_grupo = await contar(() => sb.from("enrollments").select("*", { count: "exact", head: true }).eq("activo", true).not("grupo", "is", null));
-  const sin_grupo = await contar(() => sb.from("enrollments").select("*", { count: "exact", head: true }).eq("activo", true).is("grupo", null));
   const grupos = await contar(() => sb.from("groups").select("*", { count: "exact", head: true }).eq("activo", true));
   const maestros = await contar(() => sb.from("usuarios").select("*", { count: "exact", head: true }).eq("rol_codigo", "maestro").eq("activo", true));
   const casos = await contar(() => sb.from("casos_atencion").select("*", { count: "exact", head: true }).neq("estado", "resuelto"));
 
-  return NextResponse.json({ alumnos, en_grupo, sin_grupo, grupos, maestros, casos });
+  // Lista de grupos activos + inscritos por grupo.
+  const { data: gruposData } = await sb
+    .from("groups")
+    .select("codigo, nivel, maestro, horario, cupo, liga_meet")
+    .eq("activo", true)
+    .order("nivel", { ascending: true })
+    .order("codigo", { ascending: true });
+
+  const { data: inscRows } = await sb.from("enrollments").select("grupo").eq("activo", true);
+  const conteo = {};
+  let en_grupo = 0;
+  (inscRows || []).forEach((r) => {
+    const g = (r.grupo || "").trim();
+    if (g) { conteo[g] = (conteo[g] || 0) + 1; en_grupo += 1; }
+  });
+
+  const grupos_lista = (gruposData || []).map((g) => ({ ...g, inscritos: conteo[(g.codigo || "").trim()] || 0 }));
+
+  return NextResponse.json({
+    alumnos,
+    grupos,
+    maestros,
+    casos,
+    en_grupo,
+    sin_grupo: Math.max(alumnos - en_grupo, 0),
+    grupos_lista,
+  });
 }
