@@ -23,7 +23,7 @@ export async function GET(req) {
 
   let query = sb
     .from("enrollments")
-    .select("id, folio, nombre, whatsapp, correo, municipio, colonia, sexo, grupo, estado, notas_admin", { count: "exact" })
+    .select("id, folio, nombre, whatsapp, correo, municipio, colonia, sexo, grupo, estado, notas_admin, password_cambiada", { count: "exact" })
     .eq("activo", true);
 
   // Búsqueda (se limpian caracteres que romperían el filtro PostgREST).
@@ -78,6 +78,15 @@ export async function PATCH(req) {
   if (!id) return NextResponse.json({ error: "Falta el identificador." }, { status: 400 });
 
   const perms = a.permisos;
+
+  // Restablecer la contraseña del alumno a la genérica (para quien la perdió).
+  if (b.reset_password === true) {
+    if (!perms.includes("INSC_CREAR")) return noPerm();
+    const { error } = await sb.rpc("alumno_reset_password", { p_id: id });
+    if (error) return NextResponse.json({ error: "No se pudo restablecer la contraseña." }, { status: 400 });
+    return NextResponse.json({ ok: true, reset: true });
+  }
+
   const patch = {};
 
   // Asignar / cambiar grupo.
