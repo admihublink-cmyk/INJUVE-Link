@@ -1,4 +1,5 @@
 "use client";
+// build: glass-v3.1 (rediseño vidrio naranja translúcido)
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
