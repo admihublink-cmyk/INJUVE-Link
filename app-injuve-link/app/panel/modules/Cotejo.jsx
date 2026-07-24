@@ -20,6 +20,7 @@ function Cotejo() {
   const [hecho, setHecho] = useState(null);
   const [generacion, setGeneracion] = useState("6ª");
   const [generando, setGenerando] = useState(false);
+  const [soloHistorial, setSoloHistorial] = useState(false);
   const inputRef = useRef(null);
 
   async function cargar() {
@@ -88,7 +89,7 @@ function Cotejo() {
     try {
       const r = await fetch("/api/panel/cotejo", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accion: "confirmar", periodo, archivo_base64: archivo.base64 }),
+        body: JSON.stringify({ accion: "confirmar", periodo, solo_historial: soloHistorial, archivo_base64: archivo.base64 }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || "No se pudo confirmar.");
@@ -139,6 +140,10 @@ function Cotejo() {
           <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" onChange={elegirArchivo}
             style={{ fontSize: 13.5 }} />
         </div>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, fontSize: 13, color: "var(--texto)", cursor: "pointer" }}>
+          <input type="checkbox" checked={soloHistorial} onChange={(e) => setSoloHistorial(e.target.checked)} />
+          Solo registrar historial (cotejo de un periodo pasado, p. ej. 5ª generación) — <b>no activa accesos</b> del periodo actual.
+        </label>
         {archivo && (
           <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <span className="u-badge" style={{ background: "var(--info-bg)", color: "var(--info)" }}>
@@ -185,11 +190,13 @@ function Cotejo() {
           )}
 
           <div style={{ display: "flex", gap: 10, marginTop: 16, alignItems: "center", flexWrap: "wrap" }}>
-            <button className="u-btn" onClick={confirmar} disabled={confirmando || R.a_activar === 0}>
-              {confirmando ? "Aplicando…" : `Confirmar y activar ${R.a_activar} acceso(s)`}
+            <button className="u-btn" onClick={confirmar} disabled={confirmando || (soloHistorial ? R.nuevas === 0 : R.a_activar === 0)}>
+              {confirmando ? "Aplicando…" : soloHistorial ? `Registrar ${R.nuevas} pago(s) en el historial` : `Confirmar y activar ${R.a_activar} acceso(s)`}
             </button>
             <button className="u-btn sec" onClick={() => setPrev(null)} disabled={confirmando}>Cancelar</button>
-            {R.a_activar === 0 && <span style={{ fontSize: 13, color: "var(--gris)" }}>No hay nuevos alumnos que activar en este archivo.</span>}
+            {soloHistorial
+              ? <span style={{ fontSize: 13, color: "var(--gris)" }}>Modo historial: se guardan los pagos para calcular reinscripciones, sin activar accesos.</span>
+              : R.a_activar === 0 && <span style={{ fontSize: 13, color: "var(--gris)" }}>No hay nuevos alumnos que activar en este archivo.</span>}
           </div>
         </div>
       )}
@@ -198,11 +205,15 @@ function Cotejo() {
       {hecho && (
         <div className="u-card" style={{ padding: 20 }}>
           <div className="aca-ok" style={{ marginBottom: 8 }}>
-            <Ico n="check" size={16} /> Cotejo aplicado
+            <Ico n="check" size={16} /> {hecho.solo_historial ? "Historial registrado" : "Cotejo aplicado"}
           </div>
           <p style={{ fontSize: 14, color: "var(--texto)" }}>
-            Se procesaron <b>{hecho.procesadas_nuevas}</b> transacciones nuevas y se activó el acceso de <b>{hecho.activados}</b> alumno(s).
-            {hecho.sin_match > 0 && <> Quedaron <b>{hecho.sin_match}</b> pagos sin registro por resolver.</>}
+            {hecho.solo_historial ? (
+              <>Se guardaron <b>{hecho.procesadas_nuevas}</b> pagos en el historial (sin activar accesos). Ya sirven para calcular las reinscripciones.</>
+            ) : (
+              <>Se procesaron <b>{hecho.procesadas_nuevas}</b> transacciones nuevas y se activó el acceso de <b>{hecho.activados}</b> alumno(s).
+              {hecho.sin_match > 0 && <> Quedaron <b>{hecho.sin_match}</b> pagos sin registro por resolver.</>}</>
+            )}
           </p>
         </div>
       )}
