@@ -64,6 +64,24 @@ export async function GET(req) {
   const { data: pagos } = await sb.from("pagos_maestro").select("maestro_id, estado").eq("periodo", periodo).is("group_id", null);
   const pMap = {}; (pagos || []).forEach((p) => { pMap[p.maestro_id] = p.estado; });
 
+  // Estado de documentos de honorarios por maestro (para saber si está listo para pago).
+  const HON_TIPOS = ["evidencias", "ficha", "cotizacion", "asistencia", "factura", "xml"];
+  const { data: docsHon } = await sb.from("documentos").select("maestro_id, tipo, estado").eq("categoria", "honorarios").eq("periodo", periodo);
+  const docsByM = {};
+  (docsHon || []).forEach((d) => { (docsByM[d.maestro_id] = docsByM[d.maestro_id] || []).push(d); });
+  const docsEstado = (mid) => {
+    const mine = docsByM[mid] || [];
+    const aprob = (t) => mine.some((d) => d.tipo === t && d.estado === "aprobado");
+    return {
+      aprobados: HON_TIPOS.filter(aprob).length,
+      total: HON_TIPOS.length,
+      prereqs_ok: ["evidencias", "ficha", "cotizacion", "asistencia"].every(aprob),
+      factura_subida: mine.some((d) => d.tipo === "factura"),
+      factura_ok: aprob("factura"),
+      listo_pago: HON_TIPOS.every(aprob),
+    };
+  };
+
   const rows = Object.entries(agg).map(([mid, v]) => ({
     maestro_id: mid,
     maestro: mMap[mid] || "—",
@@ -71,6 +89,7 @@ export async function GET(req) {
     horas: v.horas,
     monto: v.horas * TARIFA_HORA,
     estado: pMap[mid] || "pendiente",
+    docs: docsEstado(mid),
     detalle: v.detalle.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "")),
   })).sort((x, y) => (x.maestro || "").localeCompare(y.maestro || ""));
 
