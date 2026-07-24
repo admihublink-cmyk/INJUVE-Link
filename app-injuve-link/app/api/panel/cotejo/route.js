@@ -352,6 +352,8 @@ export async function POST(req) {
   }
 
   if (accion === "confirmar") {
+    // Modo historial: registra un cotejo de un periodo pasado sin activar accesos del periodo actual.
+    const soloHistorial = !!b.solo_historial;
     // Insertar TODAS las aprobadas no procesadas (idempotente por id_transaccion).
     const aInsertar = items.filter((i) => !i.ya_procesada);
     const filasTx = aInsertar.map((i) => ({
@@ -375,10 +377,10 @@ export async function POST(req) {
         .upsert(filasTx, { onConflict: "id_transaccion", ignoreDuplicates: true });
       if (eIns) return NextResponse.json({ error: "No se pudieron guardar las transacciones." }, { status: 500 });
     }
-    // Activar acceso solo de los que hacen match y aún están inactivos.
+    // Activar acceso solo de los que hacen match y aún están inactivos (salvo modo historial).
     const ids = [...new Set(nuevos.map((i) => i.enrollment_id))];
     let activados = 0;
-    if (ids.length) {
+    if (!soloHistorial && ids.length) {
       const { data: n, error: eAct } = await sb.rpc("cotejo_activar", { p_ids: ids });
       if (eAct) return NextResponse.json({ error: "Se guardaron las transacciones pero no se pudo activar el acceso." }, { status: 500 });
       activados = n || 0;
@@ -386,6 +388,7 @@ export async function POST(req) {
     return NextResponse.json({
       ok: true,
       periodo,
+      solo_historial: soloHistorial,
       procesadas_nuevas: filasTx.length,
       activados,
       sin_match: sinMatch.length,
