@@ -110,9 +110,17 @@ export async function PATCH(req) {
   const maestro_id = String(b.maestro_id || "");
   const periodo = String(b.periodo || "").trim();
   const estado = String(b.estado || "").trim();
-  const monto = Number(b.monto) || 0;
   if (!maestro_id || !periodo) return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
   if (!["pendiente", "pagado"].includes(estado)) return NextResponse.json({ error: "Estado no válido." }, { status: 400 });
+
+  // El monto NO se confía del cliente: se recalcula desde la asistencia impartida (horas × tarifa).
+  const rango = rangoPeriodo(periodo);
+  let horas = 0;
+  if (rango) {
+    const { data: ses } = await sb.from("sesiones_clase").select("duracion_horas").eq("maestro_id", maestro_id).eq("estado", "impartida").gte("fecha", fmt(rango.inicio)).lte("fecha", fmt(rango.fin));
+    horas = (ses || []).reduce((s, r) => s + (Number(r.duracion_horas) || 0), 0);
+  }
+  const monto = horas * TARIFA_HORA;
 
   const { data: ex } = await sb.from("pagos_maestro").select("id").eq("maestro_id", maestro_id).eq("periodo", periodo).is("group_id", null).limit(1);
   if (ex && ex[0]) {
