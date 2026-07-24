@@ -41,7 +41,8 @@ function Inscripciones() {
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || "No se pudo asignar el grupo.");
       cargar();
-    } catch (e) { setError(e.message); setGuardandoId(null); }
+    } catch (e) { setError(e.message); }
+    finally { setGuardandoId(null); }
   }
 
   const grupos = data?.grupos || [];

@@ -33,7 +33,8 @@ function Examen() {
   }
   async function toggleActiva(p) {
     try {
-      await fetch("/api/panel/examen", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, activa: !p.activa }) });
+      const r = await fetch("/api/panel/examen", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, activa: !p.activa }) });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || "No se pudo actualizar la pregunta."); }
       cargar();
     } catch (e) { setError(e.message); }
   }
