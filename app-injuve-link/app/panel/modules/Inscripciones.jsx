@@ -60,13 +60,31 @@ function Inscripciones() {
           <input className="u-inp" style={{ marginTop: 0, flex: 1 }} placeholder="Buscar por nombre, folio, WhatsApp o correo…" value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="u-btn" type="submit"><Ico n="search" size={16} /> Buscar</button>
         </form>
-        <Sel width={210} value={filtro} onChange={(val) => { setPagina(1); setFiltro(val); }}
+        <Sel width={230} value={filtro} onChange={(val) => { setPagina(1); setFiltro(val); }}
           options={[
-            { value: "todos", label: "Todos los grupos" },
+            { value: "todos", label: "Todos" },
+            { value: "pagados", label: `Pagados${data ? ` (${data.pagados})` : ""}` },
+            { value: "sin_pago", label: `Registrados sin pago${data ? ` (${data.sin_pago})` : ""}` },
             { value: "sin_grupo", label: `Sin grupo${data ? ` (${data.sin_grupo})` : ""}` },
             ...grupos.map((g) => ({ value: g.codigo, label: `${g.codigo} · Nivel ${g.nivel}` })),
           ]} />
       </div>
+
+      {data && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+          {[
+            { k: "todos", n: total, t: "Inscritos", c: "var(--tinta)" },
+            { k: "pagados", n: data.pagados, t: "Pagados", c: "var(--exito)" },
+            { k: "sin_pago", n: data.sin_pago, t: "Sin pago", c: "var(--alerta)" },
+          ].map((s) => (
+            <button key={s.k} onClick={() => { setPagina(1); setFiltro(s.k); }}
+              className="u-card" style={{ padding: "10px 16px", cursor: "pointer", textAlign: "left", border: filtro === s.k ? "1.5px solid " + s.c : undefined, minWidth: 110 }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: s.c, lineHeight: 1.1 }}>{(s.k === "todos" ? total : s.n ?? 0).toLocaleString("es-MX")}</div>
+              <div style={{ fontSize: 12.5, color: "var(--gris)" }}>{s.t}</div>
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
 
@@ -80,7 +98,7 @@ function Inscripciones() {
             <table className="u-table">
               <thead>
                 <tr>
-                  <th>Alumno</th><th>WhatsApp</th><th>Grupo</th><th>Estado</th>
+                  <th>Alumno</th><th>WhatsApp</th><th>Pago</th><th>Grupo</th>
                   <th style={{ textAlign: "right" }}>Acciones</th>
                 </tr>
               </thead>
@@ -93,15 +111,20 @@ function Inscripciones() {
                     </td>
                     <td style={{ color: "var(--gris)" }}>{al.whatsapp || "—"}</td>
                     <td>
+                      {al.activo
+                        ? <span className="u-badge" style={{ background: "var(--exito-bg)", color: "var(--exito)" }}>Pagado</span>
+                        : <span className="u-badge" style={{ background: "var(--alerta-bg)", color: "var(--alerta)" }}>Sin pago</span>}
+                    </td>
+                    <td>
                       {puedeAsignar ? (
                         <Sel width={148} tone={al.grupo ? "naranja" : "alerta"} ariaLabel="Grupo del alumno"
                           value={al.grupo || ""} disabled={guardandoId === al.id}
                           onChange={(val) => asignarGrupo(al, val)}
                           options={[{ value: "", label: "Sin grupo" }, ...grupos.map((g) => ({ value: g.codigo, label: `${g.codigo} · N${g.nivel}` }))]} />
                       ) : al.grupo ? <span className="u-rol">{al.grupo}</span> : <span className="u-badge off">Sin grupo</span>}
-                    </td>
-                    <td>
-                      <span className="u-badge" style={al.estado === "asignada" ? { background: "var(--exito-bg)", color: "var(--exito)" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{al.estado || "—"}</span>
+                      {!al.grupo && al.grupo_solicitado && (
+                        <div style={{ fontSize: 11.5, color: "var(--gris)", marginTop: 3 }}>pidió: {al.grupo_solicitado}</div>
+                      )}
                     </td>
                     <td>
                       <div className="u-acts">
