@@ -1,4 +1,5 @@
 "use client";
+// build: glass-v3.1 (rediseño vidrio naranja translúcido)
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -315,9 +316,10 @@ function Shell({ sesion, onSalir }) {
           position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;color:var(--texto);
           font-family:var(--font-cuerpo),-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
           background:
-            radial-gradient(1100px 560px at 98% -12%, rgba(241,139,17,0.22) 0%, transparent 55%),
-            radial-gradient(820px 540px at -8% 112%, rgba(241,139,17,0.12) 0%, transparent 60%),
-            #FCEAD2;}
+            radial-gradient(760px 560px at 14% -20%, rgba(255,178,74,0.20) 0%, transparent 62%),
+            radial-gradient(1000px 740px at 102% -12%, rgba(241,139,17,0.26) 0%, transparent 58%),
+            radial-gradient(880px 720px at -8% 114%, rgba(255,150,40,0.20) 0%, transparent 62%),
+            #FEF5EA;}
         .pnl svg{display:block;}
         /* —— Barra superior: vidrio claro —— */
         .pnl-top{position:relative;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -342,9 +344,9 @@ function Shell({ sesion, onSalir }) {
         .pnl-body{display:flex;flex:1;min-height:0;}
         /* —— Menú lateral: panel esmerilado —— */
         .pnl-aside{width:252px;flex-shrink:0;overflow-y:auto;padding:14px 12px 26px;
-          background:rgba(255,255,255,0.55);
-          -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
-          border-right:1px solid var(--borde);}
+          background:rgba(255,250,244,0.5);
+          -webkit-backdrop-filter:blur(20px) saturate(185%);backdrop-filter:blur(20px) saturate(185%);
+          border-right:1px solid rgba(255,255,255,0.5);}
         .pnl-aside nav{display:grid;gap:5px;}
         .pnl-sec{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--gris);opacity:.7;padding:14px 12px 6px;}
         .pnl-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;border:1px solid rgba(241,139,17,0.18);
@@ -390,11 +392,13 @@ function Shell({ sesion, onSalir }) {
         .u-btn.dan:hover{background:#8f1e18;}
         .u-btn:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
         /* —— Tarjetas y tablas —— */
-        .u-card{background:rgba(255,255,255,0.55);-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
-          border:1px solid rgba(255,255,255,0.6);border-radius:var(--r-md);overflow:hidden;box-shadow:0 14px 36px -18px rgba(184,101,0,0.4);}
+        .u-glass{background:rgba(248,214,170,0.40);-webkit-backdrop-filter:blur(18px) saturate(200%);backdrop-filter:blur(18px) saturate(200%);
+          border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);box-shadow:0 16px 36px -18px rgba(150,84,8,0.36), inset 0 1px 0 rgba(255,255,255,0.7);}
+        .u-card{background:rgba(248,214,170,0.40);-webkit-backdrop-filter:blur(18px) saturate(200%);backdrop-filter:blur(18px) saturate(200%);
+          border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);overflow:hidden;box-shadow:0 16px 36px -18px rgba(150,84,8,0.36), inset 0 1px 0 rgba(255,255,255,0.7);}
         .u-tablewrap{overflow-x:auto;}
         .u-table{width:100%;border-collapse:collapse;font-size:14px;}
-        .u-table th{text-align:left;padding:12px 16px;background:rgba(247,243,236,0.72);color:var(--gris);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--borde);white-space:nowrap;}
+        .u-table th{text-align:left;padding:12px 16px;background:rgba(241,139,17,0.12);color:#5A4326;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--borde);white-space:nowrap;}
         .u-table td{padding:12px 16px;border-bottom:1px solid var(--borde);vertical-align:middle;}
         .u-table tbody tr{transition:background .14s;}
         .u-table tbody tr:hover{background:rgba(241,139,17,0.05);}
@@ -411,8 +415,9 @@ function Shell({ sesion, onSalir }) {
         /* —— Modales de vidrio —— */
         .u-modal-bg{position:fixed;inset:0;background:rgba(43,33,24,0.34);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
           display:flex;align-items:center;justify-content:center;z-index:var(--zmbg);padding:16px;animation:pnlfade .2s var(--ease);}
-        .u-modal{background:rgba(255,255,255,0.9);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);
-          border:1px solid rgba(255,255,255,0.6);border-radius:var(--r-lg);padding:24px;width:100%;max-width:440px;box-shadow:var(--sombra-alta);
+        .u-modal{background:rgba(255,255,255,0.9);-webkit-backdrop-filter:blur(30px) saturate(185%);backdrop-filter:blur(30px) saturate(185%);
+          border:1px solid rgba(255,255,255,0.7);border-radius:var(--r-lg);padding:24px;width:100%;max-width:440px;
+          box-shadow:var(--sombra-alta), inset 0 1px 0 rgba(255,255,255,0.8);
           z-index:var(--zm);animation:pnlpop .22s var(--ease);}
         .u-modal h3{font-size:20px;font-weight:800;color:var(--negro);margin-bottom:2px;}
         .u-inp,.u-sel{width:100%;padding:11px 13px;border:1px solid var(--borde);border-radius:11px;font-size:14.5px;margin-top:10px;font-family:inherit;background:rgba(255,255,255,0.85);color:var(--texto);transition:border-color .16s,box-shadow .16s;}
@@ -529,7 +534,7 @@ function Dashboard({ u }) {
       <PageHead ico="dashboard" title="Dashboard general" sub={`Hola, ${primer}. Este es el resumen del programa.`} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16 }}>
         {cards.map(([t, v, sub]) => (
-          <div key={t} style={{ background: "rgba(255,255,255,0.5)", WebkitBackdropFilter: "blur(18px) saturate(150%)", backdropFilter: "blur(18px) saturate(150%)", border: "1px solid rgba(255,255,255,0.6)", borderRadius: 16, padding: "20px 22px", boxShadow: "0 14px 32px -18px rgba(184,101,0,0.35)" }}>
+          <div key={t} className="u-glass" style={{ padding: "20px 22px" }}>
             <div style={{ fontSize: 34, fontWeight: 800, color: "var(--naranja-osc)", lineHeight: 1, fontFamily: "var(--font-titulo),sans-serif" }}>{num(v)}</div>
             <div style={{ fontSize: 13.5, color: "var(--gris)", marginTop: 6 }}>{t}</div>
             {sub && <div style={{ fontSize: 12, color: "var(--gris)", marginTop: 4, opacity: 0.85 }}>{sub}</div>}
@@ -545,7 +550,7 @@ function Dashboard({ u }) {
       )}
 
       {d && d.puede_drive && (
-        <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap", background: "rgba(255,255,255,0.5)", WebkitBackdropFilter: "blur(18px) saturate(150%)", backdropFilter: "blur(18px) saturate(150%)", border: "1px solid rgba(255,255,255,0.6)", borderRadius: 14, padding: "13px 16px", boxShadow: "0 14px 32px -18px rgba(184,101,0,0.35)" }}>
+        <div className="u-glass" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap", padding: "13px 16px", borderRadius: 14 }}>
           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 11, background: d.drive_conectado ? "#E7F5EC" : "var(--naranja-claro)", color: d.drive_conectado ? "#1B7A3D" : "var(--naranja-osc)", flexShrink: 0 }}><Ico n={d.drive_conectado ? "check" : "download"} size={20} /></span>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontWeight: 800, color: "var(--negro)", fontSize: 14.5 }}>Google Drive{d.drive_conectado ? " · conectado" : ""}</div>
