@@ -4,9 +4,10 @@ import { leerSesion, supa } from "../../../lib/alumno";
 const PERIODO = "SEP-2026"; // bimestre al que se reinscribe
 
 async function calcular(sb, id) {
-  const { data } = await sb.rpc("reinscripcion_calcular", { p_enrollment_id: id });
+  const { data, error } = await sb.rpc("reinscripcion_calcular", { p_enrollment_id: id });
+  if (error) return null; // no adivinar el monto si el cálculo falla
   const c = Array.isArray(data) ? data[0] : data;
-  return c || { categoria: "JOVEN", burlington: false, monto: 875 };
+  return c || null;
 }
 
 export async function GET(req) {
@@ -23,11 +24,14 @@ export async function GET(req) {
     .eq("periodo", PERIODO)
     .maybeSingle();
 
+  // Si el cálculo falló y no hay una solicitud previa, no inventamos un monto.
+  if (!c && !r) return NextResponse.json({ error: "No pudimos calcular tu reinscripción en este momento. Intenta más tarde." }, { status: 503 });
+
   return NextResponse.json({
     periodo: PERIODO,
-    categoria: c.categoria,
-    burlington: c.burlington,
-    monto: r?.monto ?? c.monto,
+    categoria: c?.categoria ?? null,
+    burlington: c?.burlington ?? null,
+    monto: r?.monto ?? c?.monto ?? null,
     solicitada: !!r,
     estado: r?.estado || null,
     referencia: r?.referencia || null,
@@ -41,6 +45,7 @@ export async function POST(req) {
   try { sb = supa(); } catch { return NextResponse.json({ error: "En mantenimiento." }, { status: 503 }); }
 
   const c = await calcular(sb, id);
+  if (!c) return NextResponse.json({ error: "No pudimos calcular tu reinscripción en este momento. Intenta más tarde." }, { status: 503 });
   const { error } = await sb
     .from("reinscripciones")
     .upsert(
