@@ -315,9 +315,9 @@ function Shell({ sesion, onSalir }) {
           position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;color:var(--texto);
           font-family:var(--font-cuerpo),-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
           background:
-            radial-gradient(1100px 520px at 97% -12%, rgba(255,241,222,0.85) 0%, transparent 55%),
-            radial-gradient(780px 520px at -8% 112%, rgba(252,228,236,0.5) 0%, transparent 60%),
-            #F7F3EC;}
+            radial-gradient(1100px 560px at 98% -12%, rgba(241,139,17,0.22) 0%, transparent 55%),
+            radial-gradient(820px 540px at -8% 112%, rgba(241,139,17,0.12) 0%, transparent 60%),
+            #FCEAD2;}
         .pnl svg{display:block;}
         /* —— Barra superior: vidrio claro —— */
         .pnl-top{position:relative;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -352,9 +352,9 @@ function Shell({ sesion, onSalir }) {
           font-family:inherit;transition:background .18s var(--ease),color .16s,border-color .16s,box-shadow .18s,transform .12s var(--ease);}
         .pnl-item:hover{background:rgba(241,139,17,0.22);border-color:rgba(241,139,17,0.38);transform:translateX(2px);}
         .pnl-item .ic{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--naranja-osc);flex-shrink:0;transition:color .16s;}
-        .pnl-item.on{background:rgba(184,101,0,0.92);border-color:transparent;color:#fff;font-weight:750;box-shadow:0 9px 20px -9px rgba(184,101,0,0.7);}
-        .pnl-item.on:hover{background:rgba(184,101,0,0.95);transform:none;}
-        .pnl-item.on .ic{color:#fff;}
+        .pnl-item.on{background:rgba(241,139,17,0.26);border-color:rgba(241,139,17,0.5);color:var(--texto);font-weight:750;box-shadow:0 6px 14px -10px rgba(184,101,0,0.4);}
+        .pnl-item.on:hover{background:rgba(241,139,17,0.3);transform:none;}
+        .pnl-item.on .ic{color:var(--naranja-osc);}
         .pnl-main{flex:1;overflow-y:auto;padding:30px 34px 60px;}
         .pnl-overlay{display:none;}
         @media(max-width:860px){
@@ -390,8 +390,8 @@ function Shell({ sesion, onSalir }) {
         .u-btn.dan:hover{background:#8f1e18;}
         .u-btn:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
         /* —— Tarjetas y tablas —— */
-        .u-card{background:rgba(255,255,255,0.8);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);
-          border:1px solid var(--borde);border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sombra);}
+        .u-card{background:rgba(255,255,255,0.55);-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
+          border:1px solid rgba(255,255,255,0.6);border-radius:var(--r-md);overflow:hidden;box-shadow:0 14px 36px -18px rgba(184,101,0,0.4);}
         .u-tablewrap{overflow-x:auto;}
         .u-table{width:100%;border-collapse:collapse;font-size:14px;}
         .u-table th{text-align:left;padding:12px 16px;background:rgba(247,243,236,0.72);color:var(--gris);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--borde);white-space:nowrap;}
@@ -529,7 +529,7 @@ function Dashboard({ u }) {
       <PageHead ico="dashboard" title="Dashboard general" sub={`Hola, ${primer}. Este es el resumen del programa.`} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16 }}>
         {cards.map(([t, v, sub]) => (
-          <div key={t} style={{ background: "#fff", border: "1px solid var(--borde)", borderRadius: 16, padding: "20px 22px", boxShadow: "var(--sombra)" }}>
+          <div key={t} style={{ background: "rgba(255,255,255,0.5)", WebkitBackdropFilter: "blur(18px) saturate(150%)", backdropFilter: "blur(18px) saturate(150%)", border: "1px solid rgba(255,255,255,0.6)", borderRadius: 16, padding: "20px 22px", boxShadow: "0 14px 32px -18px rgba(184,101,0,0.35)" }}>
             <div style={{ fontSize: 34, fontWeight: 800, color: "var(--naranja-osc)", lineHeight: 1, fontFamily: "var(--font-titulo),sans-serif" }}>{num(v)}</div>
             <div style={{ fontSize: 13.5, color: "var(--gris)", marginTop: 6 }}>{t}</div>
             {sub && <div style={{ fontSize: 12, color: "var(--gris)", marginTop: 4, opacity: 0.85 }}>{sub}</div>}
@@ -545,7 +545,7 @@ function Dashboard({ u }) {
       )}
 
       {d && d.puede_drive && (
-        <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap", background: "rgba(255,255,255,0.75)", border: "1px solid var(--borde)", borderRadius: 14, padding: "13px 16px", boxShadow: "var(--sombra)" }}>
+        <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap", background: "rgba(255,255,255,0.5)", WebkitBackdropFilter: "blur(18px) saturate(150%)", backdropFilter: "blur(18px) saturate(150%)", border: "1px solid rgba(255,255,255,0.6)", borderRadius: 14, padding: "13px 16px", boxShadow: "0 14px 32px -18px rgba(184,101,0,0.35)" }}>
           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 11, background: d.drive_conectado ? "#E7F5EC" : "var(--naranja-claro)", color: d.drive_conectado ? "#1B7A3D" : "var(--naranja-osc)", flexShrink: 0 }}><Ico n={d.drive_conectado ? "check" : "download"} size={20} /></span>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontWeight: 800, color: "var(--negro)", fontSize: 14.5 }}>Google Drive{d.drive_conectado ? " · conectado" : ""}</div>
@@ -1379,6 +1379,7 @@ function MisClases() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [periodo, setPeriodo] = useState("JUL-2026");
+  const [verMaestro, setVerMaestro] = useState("");
   const [busy, setBusy] = useState(false);
   const [accId, setAccId] = useState(null);
   const [reprog, setReprog] = useState(null);
@@ -1386,14 +1387,16 @@ function MisClases() {
   async function cargar() {
     setCargando(true); setError("");
     try {
-      const r = await fetch("/api/panel/sesiones?periodo=" + encodeURIComponent(periodo));
+      const qs = new URLSearchParams({ periodo });
+      if (verMaestro) qs.set("maestro", verMaestro);
+      const r = await fetch("/api/panel/sesiones?" + qs.toString());
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || "No se pudieron cargar las clases.");
       setData(d);
     } catch (e) { setError(e.message); }
     setCargando(false);
   }
-  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [periodo]);
+  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [periodo, verMaestro]);
 
   async function generar() {
     setBusy(true); setError("");
@@ -1418,6 +1421,8 @@ function MisClases() {
   }
 
   const rows = data?.rows || [];
+  const esAdmin = data?.puede_generar;
+  const maestros = data?.maestros || [];
   const hoyStr = new Date().toISOString().slice(0, 10);
   const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -1425,16 +1430,20 @@ function MisClases() {
 
   return (
     <div>
-      <PageHead ico="misclases" title="Mis clases" sub="Toma asistencia al iniciar tu clase y entra al Meet."
+      <PageHead ico="misclases" title="Mis clases" sub={esAdmin ? "Consulta las clases de cada maestro. Puedes tomar asistencia o reprogramar por ellos si hace falta." : "Toma asistencia al iniciar tu clase y entra al Meet."}
         right={<>
+          {esAdmin && (
+            <Sel width={210} placeholder="Elige un maestro…" ariaLabel="Maestro" value={verMaestro} onChange={(val) => setVerMaestro(val)}
+              options={maestros.map((m) => ({ value: m.id, label: m.nombre }))} />
+          )}
           <Sel width={150} ariaLabel="Periodo" value={periodo} onChange={(val) => setPeriodo(val)}
             options={(data?.periodos && data.periodos.length ? data.periodos : ["JUL-2026"]).map((p) => ({ value: p, label: p }))} />
           {data?.puede_generar && <button className="u-btn" onClick={generar} disabled={busy}>{busy ? "…" : <><Ico n="calendar" size={16} /> Generar clases del periodo</>}</button>}
         </>} />
 
-      {data?.puede_generar && (
+      {esAdmin && (
         <p style={{ color: "var(--gris)", fontSize: 13, marginBottom: 12 }}>
-          Administración: total de clases del periodo (todos los grupos): <b>{data.total_periodo}</b>. Aquí abajo solo aparecen las tuyas.
+          Total de clases del periodo (todos los grupos): <b>{data.total_periodo}</b>.{verMaestro ? "" : " Elige un maestro arriba para ver y gestionar sus clases."}
         </p>
       )}
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
@@ -1444,7 +1453,9 @@ function MisClases() {
           <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
         ) : !rows.length ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>
-            No tienes clases en este periodo.{data?.puede_generar ? " Genera el calendario, o revisa que los grupos tengan horario semanal y maestro asignado." : ""}
+            {esAdmin
+              ? (verMaestro ? "Este maestro no tiene clases en este periodo." : "Elige un maestro arriba para ver sus clases.")
+              : "No tienes clases en este periodo."}
           </div>
         ) : (
           <div className="u-tablewrap">
