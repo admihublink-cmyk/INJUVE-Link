@@ -86,6 +86,8 @@ function Inscripciones() {
         </div>
       )}
 
+      <Historico />
+
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
 
       <div className="u-card">
@@ -313,6 +315,98 @@ function AccesoModal({ alumno, puedeEditar, onClose, onDone }) {
           <button className="u-btn" onClick={ok ? onDone : onClose}>{ok ? "Listo" : "Cerrar"}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Histórico de inscritos: gráfica acumulada (registrados vs pagados) por día.
+function Historico() {
+  const [abierto, setAbierto] = useState(false);
+  const [d, setD] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!abierto || d) return;
+    setCargando(true); setError("");
+    fetch("/api/panel/inscripciones?historico=1")
+      .then((r) => r.json())
+      .then((x) => { if (x.error) throw new Error(x.error); setD(x); })
+      .catch((e) => setError(e.message || "No se pudo cargar el histórico."))
+      .finally(() => setCargando(false));
+  }, [abierto, d]);
+
+  const serie = d?.serie || [];
+  const W = 720, H = 200, P = { t: 14, r: 16, b: 26, l: 44 };
+  const maxY = Math.max(1, ...serie.map((s) => s.registrados));
+  const x = (i) => P.l + (serie.length <= 1 ? 0 : (i / (serie.length - 1)) * (W - P.l - P.r));
+  const y = (v) => P.t + (1 - v / maxY) * (H - P.t - P.b);
+  const linea = (key) => serie.map((s, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(s[key]).toFixed(1)}`).join(" ");
+  const fmtFecha = (s) => { const dt = new Date(s + "T00:00:00"); return isNaN(dt) ? s : dt.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }); };
+
+  return (
+    <div className="u-card" style={{ marginBottom: 16, overflow: "hidden" }}>
+      <button onClick={() => setAbierto((v) => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "13px 18px", background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 700, fontSize: 14.5, color: "var(--negro)" }}>
+          <Ico n="reportes" size={17} /> Histórico de inscritos
+        </span>
+        <span style={{ display: "inline-flex", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .2s", color: "var(--gris)" }}>
+          <Ico n="chevron" size={16} />
+        </span>
+      </button>
+
+      {abierto && (
+        <div style={{ padding: "0 18px 18px" }}>
+          {cargando ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
+          ) : error ? (
+            <div className="u-err">{error}</div>
+          ) : serie.length === 0 ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--gris)" }}>Aún no hay datos.</div>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 10, fontSize: 13 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 12, height: 3, background: "var(--naranja)", borderRadius: 2, display: "inline-block" }} />
+                  Registrados: <b>{(d.total || 0).toLocaleString("es-MX")}</b>
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 12, height: 3, background: "var(--exito)", borderRadius: 2, display: "inline-block" }} />
+                  Pagados: <b>{(d.pagados || 0).toLocaleString("es-MX")}</b>
+                </span>
+              </div>
+              <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }} role="img" aria-label="Histórico de inscritos">
+                {[0, 0.5, 1].map((f) => {
+                  const gy = P.t + f * (H - P.t - P.b);
+                  return (
+                    <g key={f}>
+                      <line x1={P.l} y1={gy} x2={W - P.r} y2={gy} stroke="var(--borde)" strokeWidth="1" />
+                      <text x={P.l - 8} y={gy + 4} textAnchor="end" fontSize="11" fill="var(--gris)">{Math.round(maxY * (1 - f)).toLocaleString("es-MX")}</text>
+                    </g>
+                  );
+                })}
+                {serie.length > 1 && <path d={linea("registrados")} fill="none" stroke="var(--naranja)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />}
+                {serie.length > 1 && <path d={linea("pagados")} fill="none" stroke="var(--exito)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />}
+                {serie.map((s, i) => (
+                  <g key={i}>
+                    <circle cx={x(i)} cy={y(s.registrados)} r="3.5" fill="var(--naranja)" />
+                    <circle cx={x(i)} cy={y(s.pagados)} r="3.5" fill="var(--exito)" />
+                    {(serie.length <= 8 || i === 0 || i === serie.length - 1) && (
+                      <text x={x(i)} y={H - P.b + 16} textAnchor="middle" fontSize="11" fill="var(--gris)">{fmtFecha(s.fecha)}</text>
+                    )}
+                  </g>
+                ))}
+              </svg>
+              {serie.length === 1 && (
+                <p style={{ fontSize: 12.5, color: "var(--gris)", marginTop: 6 }}>
+                  Arranca en {(d.total || 0).toLocaleString("es-MX")} inscritos. La curva crecerá conforme entren nuevos registros por el formulario.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
