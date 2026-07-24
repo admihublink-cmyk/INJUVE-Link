@@ -73,7 +73,7 @@ function Inscripciones() {
       {data && (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
           {[
-            { k: "todos", n: total, t: "Inscritos", c: "var(--tinta)" },
+            { k: "todos", n: total, t: "Inscritos", c: "var(--negro)" },
             { k: "pagados", n: data.pagados, t: "Pagados", c: "var(--exito)" },
             { k: "sin_pago", n: data.sin_pago, t: "Sin pago", c: "var(--alerta)" },
           ].map((s) => (
