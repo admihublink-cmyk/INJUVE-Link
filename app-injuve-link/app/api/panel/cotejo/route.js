@@ -105,11 +105,16 @@ async function cruzar(sb, aprobadas) {
     .neq("estado", "baja");
   const porCorreo = new Map();
   const porNombre = new Map();
+  const nombresAmbiguos = new Set();
   for (const e of enr || []) {
     if (e.correo) porCorreo.set(String(e.correo).toLowerCase(), e);
     const nn = normNom(e.nombre);
-    if (nn && !porNombre.has(nn)) porNombre.set(nn, e);
+    if (!nn) continue;
+    if (porNombre.has(nn)) nombresAmbiguos.add(nn); // homónimo: no arriesgar activar al equivocado
+    else porNombre.set(nn, e);
   }
+  // Los nombres repetidos se descartan del cruce por nombre → van a revisión manual (sin_match).
+  nombresAmbiguos.forEach((nn) => porNombre.delete(nn));
   const { data: procRows } = await sb.from("transacciones").select("id_transaccion");
   const procesadas = new Set((procRows || []).map((p) => p.id_transaccion));
 
