@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { supa } from "../../../lib/auth";
 import { actor, mant, noAuth, noPerm } from "../../../lib/panelAuth";
+import { PLANTILLA_B64 } from "./plantilla";
 
 export const runtime = "nodejs";
 
@@ -138,6 +140,123 @@ async function cruzar(sb, aprobadas) {
   return items;
 }
 
+// —— Cotejo final: genera el .xlsx (7 hojas) inyectando datos en la plantilla ——
+function parsearCrudo(base64) {
+  const wb = XLSX.read(base64, { type: "base64", cellDates: true });
+  let hoja = wb.SheetNames.find((n) => normEnc(n).includes("transaccion")) || wb.SheetNames[0];
+  const filas = XLSX.utils.sheet_to_json(wb.Sheets[hoja], { header: 1, raw: true, defval: "" });
+  let hi = filas.findIndex((r) =>
+    (r || []).some((c) => normEnc(c).includes("id de la transaccion") || normEnc(c).includes("resultado transaccion"))
+  );
+  if (hi < 0) return null;
+  const heads = (filas[hi] || []).map((c) => normEnc(c));
+  const col = (f) => heads.findIndex((h) => h.includes(f));
+  const ix = {
+    id: col("id de la transaccion"),
+    ref: heads.findIndex((h) => h === "referencia"),
+    ref2: col("referencia 2"),
+    monto: col("monto de la transaccion"),
+    res: col("resultado transaccion"),
+    fecha: col("fecha transaccion"),
+  };
+  const dataRows = filas.slice(hi + 1).filter((r) => String((r || [])[ix.id] || "").trim());
+  return { headerRow: filas[hi], dataRows, ix };
+}
+
+// Categoría por monto (reglas confirmadas: JOVEN 500/875, PLUS 600/975, material 375).
+function categoriza(monto) {
+  const m = Number(monto) || 0;
+  if (m === 875) return { tipo: "JOVEN", insc: 500, mat: 375 };
+  if (m === 500) return { tipo: "JOVEN", insc: 500, mat: 0 };
+  if (m === 975) return { tipo: "PLUS", insc: 600, mat: 375 };
+  if (m === 600) return { tipo: "PLUS", insc: 600, mat: 0 };
+  if (m === 375) return { tipo: "JOVEN", insc: 0, mat: 375 };
+  const tipo = m >= 900 ? "PLUS" : "JOVEN";
+  const insc = tipo === "PLUS" ? 600 : 500;
+  const mat = Math.max(0, Math.min(375, m - insc));
+  const esperado = insc + 375;
+  return { tipo, insc, mat, demas: Math.max(0, m - esperado), demenos: Math.max(0, esperado - m) };
+}
+
+async function generarCotejoFinal(base64, opts) {
+  const { generacion = "6ª" } = opts || {};
+  const parsed = parsearCrudo(base64);
+  if (!parsed) throw new Error("No se encontró la hoja de transacciones en el archivo.");
+  const { headerRow, dataRows, ix } = parsed;
+
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(PLANTILLA_B64, "base64"));
+
+  const f = wb.getWorksheet("FICHA GENERAL");
+  f.getCell("B3").value = `${generacion} Generación · Inglés en Línea · Burlington English`;
+  const fechas = dataRows.map((r) => r[ix.fecha]).filter((x) => x instanceof Date && !isNaN(x));
+  const dd = (d) =>
+    `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
+  if (fechas.length) {
+    const mn = new Date(Math.min(...fechas)), mx = new Date(Math.max(...fechas));
+    f.getCell("C5").value = `${dd(mn)} al ${dd(mx)}`;
+  }
+
+  const jov = [], plus = [], inj = [], bur = [];
+  const esApr = (r) => { const t = normEnc(r); return t.startsWith("00") || t.includes("aprobada"); };
+  for (const r of dataRows) {
+    if (!esApr(String(r[ix.res] || ""))) continue;
+    const monto = Number(r[ix.monto]) || 0;
+    const nombre = String(r[ix.ref2] || "").trim();
+    const folio = String(r[ix.ref] || "").trim();
+    const fecha = r[ix.fecha] instanceof Date ? r[ix.fecha] : null;
+    const c = categoriza(monto);
+    const fila = { nombre, folio, fecha, monto, ...c };
+    (c.tipo === "PLUS" ? plus : jov).push(fila);
+    if (c.insc > 0) inj.push({ insc: c.insc, folio, nombre, fecha, tipo: c.tipo });
+    if (c.mat > 0) bur.push({ folio, nombre, fecha, tipo: c.tipo });
+  }
+
+  const rel = (hoja, filas) => {
+    const ws = wb.getWorksheet(hoja);
+    filas.forEach((it, i) => {
+      const row = ws.getRow(6 + i);
+      row.getCell(1).value = i + 1; row.getCell(2).value = it.nombre; row.getCell(3).value = "INGLÉS";
+      row.getCell(4).value = it.fecha; row.getCell(5).value = "LIGA DE PAGO"; row.getCell(6).value = it.monto;
+      row.getCell(7).value = it.insc || null; row.getCell(8).value = it.mat || null;
+      row.getCell(9).value = it.demas || null; row.getCell(10).value = it.demenos || null;
+    });
+  };
+  rel("RELACIÓN DE PAGOS JOVEN", jov);
+  rel("RELACIÓN DE PAGOS PLUS", plus);
+
+  const injWs = wb.getWorksheet("INJUVE");
+  inj.forEach((it, i) => {
+    const row = injWs.getRow(4 + i);
+    row.getCell(2).value = i + 1; row.getCell(3).value = it.insc; row.getCell(4).value = it.folio;
+    row.getCell(5).value = it.nombre; row.getCell(6).value = it.fecha; row.getCell(7).value = it.tipo; row.getCell(8).value = "LIGA DE PAGO";
+  });
+  const burWs = wb.getWorksheet("BURLIGTON");
+  bur.forEach((it, i) => {
+    const row = burWs.getRow(4 + i);
+    row.getCell(2).value = i + 1; row.getCell(3).value = 375; row.getCell(4).value = it.folio;
+    row.getCell(5).value = it.nombre; row.getCell(6).value = it.fecha; row.getCell(7).value = it.tipo; row.getCell(8).value = "LIGA DE PAGO";
+  });
+
+  f.getCell("C6").value = jov.length + plus.length;
+  f.getCell("D9").value = [...jov, ...plus].reduce((s, x) => s + (Number(x.monto) || 0), 0);
+
+  const tx = wb.getWorksheet("Transacciones");
+  const nCols = headerRow.length;
+  const escribe = (idx, arr) => {
+    const row = tx.getRow(idx);
+    for (let c = 0; c < nCols; c++) {
+      let v = arr[c]; if (v === "") v = null;
+      row.getCell(c + 1).value = v instanceof Date ? v : v ?? null;
+    }
+  };
+  escribe(1, headerRow);
+  dataRows.forEach((r, i) => escribe(2 + i, r));
+
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.from(buf).toString("base64");
+}
+
 export async function GET(req) {
   let sb;
   try { sb = supa(); } catch { return mant(); }
@@ -271,6 +390,16 @@ export async function POST(req) {
       activados,
       sin_match: sinMatch.length,
     });
+  }
+
+  if (accion === "cotejo_final") {
+    try {
+      const generacion = String(b.generacion || "6ª").trim();
+      const archivo = await generarCotejoFinal(base64, { generacion });
+      return NextResponse.json({ ok: true, archivo_base64: archivo, nombre: `COTEJO_${periodo}.xlsx` });
+    } catch (e) {
+      return NextResponse.json({ error: "No se pudo generar el cotejo: " + (e.message || "error") }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ error: "Acción no reconocida." }, { status: 400 });
