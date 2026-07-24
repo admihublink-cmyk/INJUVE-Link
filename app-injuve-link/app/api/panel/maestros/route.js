@@ -20,9 +20,26 @@ export async function GET(req) {
   if (error) return NextResponse.json({ error: "No se pudieron cargar los maestros." }, { status: 500 });
 
   const { data: grupos } = await sb.from("groups").select("id, codigo, nivel, horario, cupo, maestro_id").eq("activo", true);
-  const { data: inscRows } = await sb.from("enrollments").select("grupo").eq("activo", true);
-  const conteo = {};
-  (inscRows || []).forEach((r) => { const g = (r.grupo || "").trim(); if (g) conteo[g] = (conteo[g] || 0) + 1; });
+  const { data: inscRows } = await sb.from("enrollments").select("id, grupo").eq("activo", true);
+
+  // Retención: un alumno es "recurrente" si tiene un pago de una generación ANTERIOR
+  // (cualquier transacción de un periodo distinto al actual). El historial se siembra
+  // con el cotejo de la 5ª gen; los pagos del periodo actual NO cuentan como retención.
+  const PERIODO_ACTUAL = "SEP-2026";
+  const { data: txHist } = await sb
+    .from("transacciones")
+    .select("enrollment_id")
+    .neq("periodo", PERIODO_ACTUAL)
+    .not("enrollment_id", "is", null);
+  const recurSet = new Set((txHist || []).map((t) => t.enrollment_id));
+
+  const conteo = {}, recur = {};
+  (inscRows || []).forEach((r) => {
+    const g = (r.grupo || "").trim();
+    if (!g) return;
+    conteo[g] = (conteo[g] || 0) + 1;
+    if (recurSet.has(r.id)) recur[g] = (recur[g] || 0) + 1;
+  });
 
   const { data: cotis } = await sb.from("cotizaciones_maestro").select("maestro_id, nivel, monto");
 
@@ -31,18 +48,53 @@ export async function GET(req) {
   const rows = (maestros || []).map((m) => {
     const gs = (grupos || [])
       .filter((g) => g.maestro_id === m.id)
-      .map((g) => ({ id: g.id, codigo: g.codigo, nivel: g.nivel, horario: g.horario, cupo: g.cupo, inscritos: conteo[(g.codigo || "").trim()] || 0 }))
+      .map((g) => {
+        const code = (g.codigo || "").trim();
+        const inscritos = conteo[code] || 0;
+        const recurrentes = recur[code] || 0;
+        return { id: g.id, codigo: g.codigo, nivel: g.nivel, horario: g.horario, cupo: g.cupo, inscritos, recurrentes, nuevos: inscritos - recurrentes };
+      })
       .sort((x, y) => (x.codigo || "").localeCompare(y.codigo || ""));
     const alumnos = gs.reduce((s, g) => s + g.inscritos, 0);
+    const recurrentes = gs.reduce((s, g) => s + g.recurrentes, 0);
     const nivelesM = Array.from(new Set(gs.map((g) => g.nivel).filter(Boolean))).sort();
     const cot = {};
     (cotis || []).filter((c) => c.maestro_id === m.id).forEach((c) => { cot[c.nivel] = Number(c.monto); });
-    return { id: m.id, nombre: m.nombre, correo: m.correo, telefono: m.telefono || "", activo: m.activo, grupos: gs, alumnos, niveles: nivelesM, cotizaciones: cot };
+    return {
+      id: m.id, nombre: m.nombre, correo: m.correo, telefono: m.telefono || "", activo: m.activo,
+      grupos: gs, alumnos, niveles: nivelesM, cotizaciones: cot,
+      recurrentes, nuevos: alumnos - recurrentes, retencion_pct: alumnos ? Math.round((recurrentes / alumnos) * 100) : 0,
+    };
   });
+
+  // Resumen global + por nivel (para la sección de retención).
+  const nivelAgg = {};
+  (grupos || []).forEach((g) => {
+    const code = (g.codigo || "").trim();
+    const nv = g.nivel || "—";
+    if (!nivelAgg[nv]) nivelAgg[nv] = { nivel: nv, alumnos: 0, recurrentes: 0 };
+    nivelAgg[nv].alumnos += conteo[code] || 0;
+    nivelAgg[nv].recurrentes += recur[code] || 0;
+  });
+  const retencion_niveles = Object.values(nivelAgg)
+    .map((n) => ({ ...n, nuevos: n.alumnos - n.recurrentes, pct: n.alumnos ? Math.round((n.recurrentes / n.alumnos) * 100) : 0 }))
+    .sort((a, b) => a.nivel.localeCompare(b.nivel));
+  const totalAlumnos = Object.values(conteo).reduce((s, n) => s + n, 0);
+  const totalRecur = Object.values(recur).reduce((s, n) => s + n, 0);
+  const retencion_global = {
+    alumnos: totalAlumnos,
+    recurrentes: totalRecur,
+    nuevos: totalAlumnos - totalRecur,
+    pct: totalAlumnos ? Math.round((totalRecur / totalAlumnos) * 100) : 0,
+    hay_historial: recurSet.size > 0,
+    periodo_actual: PERIODO_ACTUAL,
+  };
 
   return NextResponse.json({
     rows,
     niveles,
+    retencion_global,
+    retencion_niveles,
     puede_editar: a.permisos.includes("MAESTRO_CREAR"),
     puede_cotizar: a.permisos.includes("MAESTRO_COTIZACION"),
   });
