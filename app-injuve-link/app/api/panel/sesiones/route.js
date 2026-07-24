@@ -39,10 +39,12 @@ export async function GET(req) {
   const periodo = (url.searchParams.get("periodo") || "JUL-2026").trim();
   const rango = rangoPeriodo(periodo);
   const puedeGenerar = a.permisos.includes("PROGRAMA_CONFIG");
+  const verMaestro = (url.searchParams.get("maestro") || "").trim();
+  const targetMaestro = (puedeGenerar && verMaestro) ? verMaestro : a.id;
 
   let q = sb.from("sesiones_clase")
     .select("id, group_id, maestro_id, fecha, hora, duracion_horas, estado, impartida_at, link_meet, tema")
-    .eq("maestro_id", a.id)
+    .eq("maestro_id", targetMaestro)
     .order("fecha", { ascending: true })
     .order("hora", { ascending: true });
   if (rango) q = q.gte("fecha", fmt(rango.inicio)).lte("fecha", fmt(rango.fin));
@@ -78,7 +80,13 @@ export async function GET(req) {
     return (Number(pa[1]) - Number(pb[1])) || (MES_ABBR.indexOf(pa[0]) - MES_ABBR.indexOf(pb[0]));
   });
 
-  return NextResponse.json({ rows, periodo, periodos, puede_generar: puedeGenerar, total_periodo });
+  let maestros = [];
+  if (puedeGenerar) {
+    const { data: ms } = await sb.from("usuarios").select("id, nombre").eq("rol_codigo", "maestro").eq("activo", true).order("nombre", { ascending: true });
+    maestros = (ms || []).map((m) => ({ id: m.id, nombre: m.nombre }));
+  }
+
+  return NextResponse.json({ rows, periodo, periodos, puede_generar: puedeGenerar, total_periodo, maestros, maestro_actual: targetMaestro });
 }
 
 // POST: genera las sesiones del periodo desde el horario semanal de cada grupo (solo admin).
