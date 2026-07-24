@@ -1,18 +1,8 @@
 import { NextResponse } from "next/server";
-import { supa, leerSesion } from "../../../lib/auth";
+import { supa } from "../../../lib/auth";
+import { actor, mant, noAuth, noPerm } from "../../../lib/panelAuth";
 
-async function actor(sb, req) {
-  const s = leerSesion(req);
-  if (!s) return null;
-  const { data: u } = await sb.from("usuarios").select("id, rol_codigo, activo").eq("id", s.id).maybeSingle();
-  if (!u || !u.activo) return null;
-  const { data: perms } = await sb.from("roles_permisos").select("permiso_codigo").eq("rol_codigo", u.rol_codigo);
-  return { id: u.id, rol: u.rol_codigo, permisos: (perms || []).map((p) => p.permiso_codigo) };
-}
-
-const mant = () => NextResponse.json({ error: "El sistema está en mantenimiento." }, { status: 503 });
-const noAuth = () => NextResponse.json({ error: "No autenticado." }, { status: 401 });
-const noPerm = () => NextResponse.json({ error: "No tienes permiso para esta acción." }, { status: 403 });
+// actor() y respuestas (mant/noAuth/noPerm) viven en lib/panelAuth.js.
 const fechaOk = (f) => f == null || f === "" || /^\d{4}-\d{2}-\d{2}$/.test(f);
 const limpiaFecha = (f) => (f && /^\d{4}-\d{2}-\d{2}$/.test(f) ? f : null);
 
