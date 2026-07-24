@@ -180,16 +180,54 @@ function Shell({ sesion, onSalir }) {
   const [navAbierto, setNavAbierto] = useState(false);
   const modActiva = modulos.find((m) => m.id === activa) || modulos[0];
 
-  // Accesibilidad: cerrar con la tecla Escape el modal de más arriba (si no hay un desplegable abierto).
+  // Accesibilidad de modales: Escape cierra el modal superior + trampa de foco (Tab/Shift+Tab cíclico dentro
+  // del modal de más arriba), enfoca el primer control al abrir y devuelve el foco al disparador al cerrar.
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key !== "Escape") return;
-      if (document.querySelector(".sel-menu")) return; // el desplegable maneja su propio Escape
-      const bgs = document.querySelectorAll(".u-modal-bg");
-      if (bgs.length) bgs[bgs.length - 1].click();
+    const SEL = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    const modalArriba = () => {
+      const ms = document.querySelectorAll(".u-modal");
+      return ms.length ? ms[ms.length - 1] : null;
     };
+    const enfocables = (root) => [...root.querySelectorAll(SEL)].filter((el) => !el.disabled && el.getClientRects().length > 0);
+    let previo = null;
+
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        if (document.querySelector(".sel-menu")) return; // el desplegable maneja su propio Escape
+        const bgs = document.querySelectorAll(".u-modal-bg");
+        if (bgs.length) bgs[bgs.length - 1].click();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const modal = modalArriba();
+      if (!modal) return;
+      const f = enfocables(modal);
+      if (!f.length) { e.preventDefault(); return; }
+      const primero = f[0], ultimo = f[f.length - 1], act = document.activeElement;
+      if (!modal.contains(act)) { e.preventDefault(); primero.focus(); return; }
+      if (e.shiftKey && act === primero) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && act === ultimo) { e.preventDefault(); primero.focus(); }
+    };
+
+    const onMut = () => {
+      const modal = modalArriba();
+      if (modal) {
+        if (!modal.dataset.trap) {
+          modal.dataset.trap = "1";
+          if (!previo) previo = document.activeElement; // recuerda el disparador (solo el 1er modal)
+          const f = enfocables(modal);
+          (f[0] || modal).focus?.();
+        }
+      } else if (previo) {
+        previo.focus?.();
+        previo = null;
+      }
+    };
+
+    const obs = new MutationObserver(onMut);
+    obs.observe(document.body, { childList: true, subtree: true });
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => { obs.disconnect(); document.removeEventListener("keydown", onKey); };
   }, []);
 
   return (
@@ -271,8 +309,8 @@ function Shell({ sesion, onSalir }) {
         .u-btn:active{transform:translateY(0);}
         .u-btn.sec{background:rgba(255,255,255,0.9);color:var(--texto);border:1px solid var(--borde);box-shadow:none;}
         .u-btn.sec:hover{background:#fff;box-shadow:var(--sombra);}
-        .u-btn.dan{background:#B3261E;color:#fff;box-shadow:0 10px 22px -12px rgba(179,38,30,0.8);}
-        .u-btn.dan:hover{background:#8f1e18;}
+        .u-btn.dan{background:var(--alerta);color:#fff;box-shadow:0 10px 22px -12px rgba(179,38,30,0.8);}
+        .u-btn.dan:hover{background:var(--alerta-osc);}
         .u-btn:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
         /* —— Tarjetas y tablas —— */
         /* Tarjetas SIN backdrop-filter: el fondo detrás es un degradado suave, el blur no aportaba nada visible pero costaba GPU (una capa por tarjeta). El blur se reserva para barra/sidebar/modales. */
@@ -281,6 +319,8 @@ function Shell({ sesion, onSalir }) {
         .u-card{background:rgba(248,214,170,0.26);
           border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);overflow:hidden;box-shadow:0 16px 36px -18px rgba(150,84,8,0.34), inset 0 1px 0 rgba(255,255,255,0.72);}
         .u-tablewrap{overflow-x:auto;}
+        /* Salta el render/pintado de tarjetas fuera de pantalla en listas que crecen (p.ej. maestros en Documentos). */
+        .cv-card{content-visibility:auto;contain-intrinsic-size:auto 140px;}
         .u-table{width:100%;border-collapse:collapse;font-size:14px;}
         .u-table th{text-align:left;padding:12px 16px;background:rgba(241,139,17,0.12);color:#5A4326;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--borde);white-space:nowrap;}
         .u-table td{padding:12px 16px;border-bottom:1px solid var(--borde);vertical-align:middle;}
@@ -288,13 +328,13 @@ function Shell({ sesion, onSalir }) {
         .u-table tbody tr:hover{background:rgba(241,139,17,0.05);}
         .u-table tr:last-child td{border-bottom:none;}
         .u-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;}
-        .u-badge.on{background:#E7F5EC;color:#1B7A3D;}
-        .u-badge.off{background:#F1EEE9;color:#8A8178;}
+        .u-badge.on{background:var(--exito-bg);color:var(--exito);}
+        .u-badge.off{background:#F1EEE9;color:var(--gris-2);}
         .u-rol{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;background:var(--naranja-claro);color:var(--naranja-osc);white-space:nowrap;}
         .u-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
         .u-mini{display:inline-flex;align-items:center;justify-content:center;gap:5px;background:rgba(255,255,255,0.82);border:1px solid var(--borde);border-radius:9px;padding:6px 12px;min-height:38px;box-sizing:border-box;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--texto);font-family:inherit;white-space:nowrap;transition:background .16s,box-shadow .16s;}
         .u-mini:hover{background:#fff;box-shadow:var(--sombra);}
-        .u-mini.dan{color:#B3261E;border-color:rgba(179,38,30,.3);}
+        .u-mini.dan{color:var(--alerta);border-color:rgba(179,38,30,.3);}
         .u-mini.dan:hover{background:rgba(179,38,30,.08);}
         /* —— Modales de vidrio —— */
         .u-modal-bg{position:fixed;inset:0;background:rgba(43,33,24,0.34);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
@@ -306,7 +346,7 @@ function Shell({ sesion, onSalir }) {
         .u-modal h3{font-size:20px;font-weight:800;color:var(--negro);margin-bottom:2px;}
         .u-inp,.u-sel{width:100%;padding:11px 13px;border:1px solid var(--borde);border-radius:11px;font-size:14.5px;margin-top:10px;font-family:inherit;background:rgba(255,255,255,0.85);color:var(--texto);transition:border-color .16s,box-shadow .16s;}
         .u-inp:focus,.u-sel:focus{outline:none;border-color:var(--naranja);box-shadow:0 0 0 3px var(--naranja-claro);}
-        .u-err{background:rgba(179,38,30,.1);color:#B3261E;border-radius:11px;padding:9px 13px;font-size:13.5px;margin-top:12px;}
+        .u-err{background:rgba(179,38,30,.1);color:var(--alerta);border-radius:11px;padding:9px 13px;font-size:13.5px;margin-top:12px;}
         /* —— Desplegable personalizado —— */
         .sel{position:relative;display:inline-block;}
         .sel-btn{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:40px;padding:8px 12px;
@@ -320,7 +360,7 @@ function Shell({ sesion, onSalir }) {
         .sel-chev{display:inline-flex;color:var(--gris);transition:transform .2s var(--ease);flex-shrink:0;}
         .sel-btn.open .sel-chev{transform:rotate(180deg);}
         .sel.t-naranja .sel-btn{background:var(--naranja-claro);border-color:transparent;color:var(--naranja-osc);font-weight:700;}
-        .sel.t-alerta .sel-btn{background:#FDECEC;border-color:transparent;color:#B3261E;font-weight:700;}
+        .sel.t-alerta .sel-btn{background:var(--alerta-bg);border-color:transparent;color:var(--alerta);font-weight:700;}
         .sel-menu{z-index:var(--zdrop);max-height:302px;overflow-y:auto;padding:6px;border-radius:14px;
           background:rgba(255,255,255,0.86);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);
           border:1px solid var(--borde);box-shadow:var(--sombra-alta);animation:pnlpop .16s var(--ease);}
@@ -335,10 +375,10 @@ function Shell({ sesion, onSalir }) {
         .pnl-tab:hover{color:var(--texto);}
         .pnl-tab.on{background:#fff;color:var(--naranja-osc);box-shadow:var(--sombra);}
         .pnl-tab .ic{display:inline-flex;}
-        .aca-ok{display:inline-flex;align-items:center;gap:7px;background:#E7F5EC;color:#1B7A3D;border-radius:10px;padding:8px 13px;font-size:13.5px;font-weight:600;margin-bottom:14px;}
+        .aca-ok{display:inline-flex;align-items:center;gap:7px;background:var(--exito-bg);color:var(--exito);border-radius:10px;padding:8px 13px;font-size:13.5px;font-weight:600;margin-bottom:14px;}
         .asis-sw{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--borde);background:rgba(255,255,255,0.8);border-radius:999px;padding:6px 14px 6px 8px;min-height:38px;box-sizing:border-box;font-family:inherit;font-size:13px;font-weight:700;color:var(--gris);cursor:pointer;transition:background .16s,color .16s,border-color .16s;}
         .asis-sw .dotsw{width:17px;height:17px;border-radius:50%;background:#CFC7BC;display:inline-flex;align-items:center;justify-content:center;color:#fff;transition:background .16s;}
-        .asis-sw.pres{background:#E7F5EC;border-color:transparent;color:#1B7A3D;}
+        .asis-sw.pres{background:var(--exito-bg);border-color:transparent;color:var(--exito);}
         .asis-sw.pres .dotsw{background:#1B9048;}
         .asis-sw:disabled{opacity:.55;cursor:default;}
         @keyframes pnlfade{from{opacity:0;}to{opacity:1;}}
