@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supa, leerSesion } from "../../../lib/auth";
 import { uploadFile, deleteFile } from "../../../lib/drive";
+import { periodosDisponibles } from "../../../lib/periodos";
 
 async function actor(sb, req) {
   const s = leerSesion(req);
@@ -47,18 +48,7 @@ function defaultPeriodo() {
   const d = new Date();
   return MES_ABBR[d.getUTCMonth()] + "-" + d.getUTCFullYear();
 }
-async function periodosDisponibles(sb, incluir) {
-  const set = new Set();
-  const { data: f } = await sb.from("sesiones_clase").select("fecha");
-  (f || []).forEach((r) => { if (r.fecha) { const p = String(r.fecha).split("-"); set.add(MES_ABBR[parseInt(p[1], 10) - 1] + "-" + p[0]); } });
-  const { data: dp } = await sb.from("documentos").select("periodo");
-  (dp || []).forEach((r) => { if (r.periodo) set.add(r.periodo); });
-  if (incluir) set.add(incluir);
-  return Array.from(set).sort((a, b) => {
-    const pa = String(a).split("-"), pb = String(b).split("-");
-    return (Number(pa[1]) - Number(pb[1])) || (MES_ABBR.indexOf(pa[0]) - MES_ABBR.indexOf(pb[0]));
-  });
-}
+// periodosDisponibles ahora vive en lib/periodos.js (una sola fuente).
 
 function mergeSlots(defs, rows) {
   const byTipo = {};
