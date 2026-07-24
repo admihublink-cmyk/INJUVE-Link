@@ -110,7 +110,7 @@ export default function Examen() {
                       {(p.opciones || []).map((op, j) => {
                         const sel = Number(resp[p.id]) === j;
                         return (
-                          <button key={j} type="button" onClick={() => setResp((s) => ({ ...s, [p.id]: j }))}
+                          <button key={j} type="button" aria-pressed={sel} onClick={() => setResp((s) => ({ ...s, [p.id]: j }))}
                             style={{ textAlign: "left", padding: "11px 14px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit", fontSize: 15,
                               border: sel ? "2px solid #F18B11" : "1px solid rgba(0,0,0,0.15)", background: sel ? "#FFF1DE" : "#fff", color: "#2B2118" }}>
                             {op}
