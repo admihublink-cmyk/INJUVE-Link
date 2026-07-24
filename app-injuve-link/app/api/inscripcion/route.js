@@ -29,6 +29,11 @@ async function manejar(req) {
   const fecha = b.fecha_nacimiento;
   const sexo = String(b.sexo || "").trim();
   const examen = String(b.examen_ubicacion || "").trim();
+  const calle = String(b.calle || "").trim() || null;
+  const colonia = String(b.colonia || "").trim() || null;
+  const municipio = String(b.municipio || "").trim() || null;
+  const entidad = String(b.entidad || "").trim() || null;
+  const grupoSolicitado = String(b.grupo_solicitado || "").trim() || null;
 
   if (nombre.length < 5) return NextResponse.json({ error: "Falta el nombre completo." }, { status: 400 });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) return NextResponse.json({ error: "Correo no válido." }, { status: 400 });
@@ -72,12 +77,17 @@ async function manejar(req) {
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || null;
 
-  const { data, error } = await supabase.rpc("crear_inscripcion_v2", {
+  const { data, error } = await supabase.rpc("crear_inscripcion_v3", {
     p_nombre: nombre,
     p_correo: correo,
     p_whatsapp: whatsapp,
     p_fecha_nacimiento: fecha,
     p_sexo: sexo,
+    p_calle: calle,
+    p_colonia: colonia,
+    p_municipio: municipio,
+    p_entidad: entidad,
+    p_grupo_solicitado: grupoSolicitado,
     p_examen_ubicacion: examen,
     p_es_menor: esMenor,
     p_tutor_nombre: esMenor ? String(b.tutor_nombre).trim() : null,
