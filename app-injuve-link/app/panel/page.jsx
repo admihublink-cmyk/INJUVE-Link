@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 const ROL_NOMBRE = {
@@ -142,12 +143,26 @@ function Sel({ value, onChange, options, placeholder = "Elige…", disabled, wid
   let menuStyle = null;
   if (rect) {
     const abajo = window.innerHeight - rect.bottom;
-    const arriba = window.innerHeight - abajo;
     const up = abajo < 260 && rect.top > abajo;
-    menuStyle = up
-      ? { position: "fixed", bottom: window.innerHeight - rect.top + 6, left: rect.left, minWidth: rect.width }
-      : { position: "fixed", top: rect.bottom + 6, left: rect.left, minWidth: rect.width };
+    menuStyle = {
+      position: "fixed", left: rect.left, minWidth: rect.width, zIndex: 2000,
+      ...(up ? { bottom: window.innerHeight - rect.top + 6 } : { top: rect.bottom + 6 }),
+    };
   }
+
+  // El menú va en un portal al <body> para no descolocarse dentro de modales/tarjetas
+  // con backdrop-filter (que crean un containing block para position:fixed).
+  const menu = open && rect ? (
+    <div ref={menuRef} className="sel-menu" role="listbox" style={menuStyle}>
+      {options.map((o) => (
+        <button type="button" key={String(o.value)} role="option" aria-selected={String(o.value) === String(value)}
+          className={"sel-opt" + (String(o.value) === String(value) ? " on" : "")} onClick={() => pick(o.value)}>
+          <span>{o.label}</span>
+          {String(o.value) === String(value) && <Ico n="check" size={15} />}
+        </button>
+      ))}
+    </div>
+  ) : null;
 
   return (
     <div className={"sel" + (tone === "naranja" ? " t-naranja" : tone === "alerta" ? " t-alerta" : "")} style={width ? { width } : undefined}>
@@ -156,17 +171,7 @@ function Sel({ value, onChange, options, placeholder = "Elige…", disabled, wid
         <span className={"sel-val" + (cur ? "" : " ph")}>{cur ? cur.label : placeholder}</span>
         <span className="sel-chev"><Ico n="chevron" size={16} /></span>
       </button>
-      {open && rect && (
-        <div ref={menuRef} className="sel-menu" role="listbox" style={menuStyle}>
-          {options.map((o) => (
-            <button type="button" key={String(o.value)} role="option" aria-selected={String(o.value) === String(value)}
-              className={"sel-opt" + (String(o.value) === String(value) ? " on" : "")} onClick={() => pick(o.value)}>
-              <span>{o.label}</span>
-              {String(o.value) === String(value) && <Ico n="check" size={15} />}
-            </button>
-          ))}
-        </div>
-      )}
+      {menu && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
     </div>
   );
 }
@@ -446,7 +451,10 @@ function Shell({ sesion, onSalir }) {
         .asis-sw:disabled{opacity:.55;cursor:default;}
         @keyframes pnlfade{from{opacity:0;}to{opacity:1;}}
         @keyframes pnlpop{from{opacity:0;transform:translateY(6px) scale(.985);}to{opacity:1;transform:none;}}
-        @media(prefers-reduced-motion:reduce){.pnl *{animation:none !important;transition:none !important;}}
+        .pnl-view{animation:pnlview .34s var(--ease);}
+        @keyframes pnlview{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+        .sel-menu{animation:pnlpop .16s var(--ease);}
+        @media(prefers-reduced-motion:reduce){.pnl *,.sel-menu{animation:none !important;transition:none !important;}}
       `}</style>
 
       <header className="pnl-top">
@@ -476,16 +484,18 @@ function Shell({ sesion, onSalir }) {
         </aside>
 
         <main className="pnl-main">
-          {modActiva?.id === "dashboard" ? <Dashboard u={u} />
-            : modActiva?.id === "misclases" ? <MisClases />
-            : modActiva?.id === "usuarios" ? <Usuarios />
-            : modActiva?.id === "inscripciones" ? <Inscripciones />
-            : modActiva?.id === "grupos" ? <Grupos />
-            : modActiva?.id === "maestros" ? <Maestros />
-            : modActiva?.id === "pagos" ? <Pagos />
-            : modActiva?.id === "programa" ? <Programa />
-            : modActiva?.id === "academico" ? <Academico />
-            : <Modulo mod={modActiva} />}
+          <div key={modActiva?.id} className="pnl-view">
+            {modActiva?.id === "dashboard" ? <Dashboard u={u} />
+              : modActiva?.id === "misclases" ? <MisClases />
+              : modActiva?.id === "usuarios" ? <Usuarios />
+              : modActiva?.id === "inscripciones" ? <Inscripciones />
+              : modActiva?.id === "grupos" ? <Grupos />
+              : modActiva?.id === "maestros" ? <Maestros />
+              : modActiva?.id === "pagos" ? <Pagos />
+              : modActiva?.id === "programa" ? <Programa />
+              : modActiva?.id === "academico" ? <Academico />
+              : <Modulo mod={modActiva} />}
+          </div>
         </main>
       </div>
     </div>
