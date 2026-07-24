@@ -16,6 +16,32 @@ export async function GET(req) {
   if (!a.permisos.includes("INSC_VER")) return noPerm();
 
   const url = new URL(req.url);
+
+  // Histórico de inscritos (serie acumulada por día) para la gráfica.
+  if (url.searchParams.get("historico")) {
+    const { data: filas } = await sb
+      .from("enrollments")
+      .select("created_at, activo")
+      .neq("estado", "baja");
+    const porDia = new Map();
+    for (const f of filas || []) {
+      const d = (f.created_at || "").slice(0, 10);
+      if (!d) continue;
+      if (!porDia.has(d)) porDia.set(d, { nuevos: 0, pagados: 0 });
+      const o = porDia.get(d);
+      o.nuevos += 1;
+      if (f.activo) o.pagados += 1;
+    }
+    const dias = [...porDia.keys()].sort();
+    let acReg = 0, acPag = 0;
+    const serie = dias.map((d) => {
+      acReg += porDia.get(d).nuevos;
+      acPag += porDia.get(d).pagados;
+      return { fecha: d, nuevos: porDia.get(d).nuevos, registrados: acReg, pagados: acPag };
+    });
+    return NextResponse.json({ serie, total: acReg, pagados: acPag });
+  }
+
   const q = (url.searchParams.get("q") || "").trim();
   const filtro = (url.searchParams.get("filtro") || "todos").trim();
   const pagina = Math.max(1, parseInt(url.searchParams.get("pagina") || "1", 10) || 1);
