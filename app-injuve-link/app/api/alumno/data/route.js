@@ -14,7 +14,7 @@ export async function GET(req) {
 
   const { data: al, error } = await sb
     .from("enrollments")
-    .select("folio, nombre, correo, whatsapp, edad, sexo, examen_ubicacion, estado, activo, grupo, es_menor")
+    .select("folio, nombre, correo, whatsapp, edad, sexo, examen_ubicacion, estado, activo, grupo, es_menor, password_cambiada")
     .eq("id", id)
     .maybeSingle();
 
