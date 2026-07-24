@@ -404,9 +404,10 @@ function Shell({ sesion, onSalir }) {
         .u-btn.dan:hover{background:#8f1e18;}
         .u-btn:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
         /* —— Tarjetas y tablas —— */
-        .u-glass{background:rgba(248,214,170,0.24);-webkit-backdrop-filter:blur(18px) saturate(185%);backdrop-filter:blur(18px) saturate(185%);
+        /* Tarjetas SIN backdrop-filter: el fondo detrás es un degradado suave, el blur no aportaba nada visible pero costaba GPU (una capa por tarjeta). El blur se reserva para barra/sidebar/modales. */
+        .u-glass{background:rgba(248,214,170,0.26);
           border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);box-shadow:0 16px 36px -18px rgba(150,84,8,0.34), inset 0 1px 0 rgba(255,255,255,0.72);}
-        .u-card{background:rgba(248,214,170,0.24);-webkit-backdrop-filter:blur(18px) saturate(185%);backdrop-filter:blur(18px) saturate(185%);
+        .u-card{background:rgba(248,214,170,0.26);
           border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);overflow:hidden;box-shadow:0 16px 36px -18px rgba(150,84,8,0.34), inset 0 1px 0 rgba(255,255,255,0.72);}
         .u-tablewrap{overflow-x:auto;}
         .u-table{width:100%;border-collapse:collapse;font-size:14px;}
