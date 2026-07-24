@@ -12,26 +12,25 @@ export async function GET(req) {
   if (!a) return noAuth();
   if (!a.permisos.includes("MAESTRO_VER")) return noPerm();
 
-  const { data: maestros, error } = await sb
-    .from("usuarios")
-    .select("id, nombre, correo, telefono, activo")
-    .eq("rol_codigo", "maestro")
-    .order("nombre", { ascending: true });
-  if (error) return NextResponse.json({ error: "No se pudieron cargar los maestros." }, { status: 500 });
-
-  const { data: grupos } = await sb.from("groups").select("id, codigo, nivel, horario, cupo, maestro_id").eq("activo", true);
-  const { data: inscRows } = await sb.from("enrollments").select("id, grupo").eq("activo", true);
-
   // Retención: un alumno es "recurrente" si tiene un pago de una generación ANTERIOR
   // (cualquier transacción de un periodo distinto al actual). El historial se siembra
   // con el cotejo de la 5ª gen; los pagos del periodo actual NO cuentan como retención.
   const PERIODO_ACTUAL = "SEP-2026";
-  const { data: txHist } = await sb
-    .from("transacciones")
-    .select("enrollment_id")
-    .neq("periodo", PERIODO_ACTUAL)
-    .not("enrollment_id", "is", null);
-  const recurSet = new Set((txHist || []).map((t) => t.enrollment_id));
+
+  // Las 5 consultas son independientes → en paralelo.
+  const [maestrosRes, gruposRes, inscRes, txRes, cotisRes] = await Promise.all([
+    sb.from("usuarios").select("id, nombre, correo, telefono, activo").eq("rol_codigo", "maestro").order("nombre", { ascending: true }),
+    sb.from("groups").select("id, codigo, nivel, horario, cupo, maestro_id").eq("activo", true),
+    sb.from("enrollments").select("id, grupo").eq("activo", true),
+    sb.from("transacciones").select("enrollment_id").neq("periodo", PERIODO_ACTUAL).not("enrollment_id", "is", null),
+    sb.from("cotizaciones_maestro").select("maestro_id, nivel, monto"),
+  ]);
+  const { data: maestros, error } = maestrosRes;
+  if (error) return NextResponse.json({ error: "No se pudieron cargar los maestros." }, { status: 500 });
+  const grupos = gruposRes.data;
+  const inscRows = inscRes.data;
+  const recurSet = new Set((txRes.data || []).map((t) => t.enrollment_id));
+  const cotis = cotisRes.data;
 
   const conteo = {}, recur = {};
   (inscRows || []).forEach((r) => {
@@ -40,8 +39,6 @@ export async function GET(req) {
     conteo[g] = (conteo[g] || 0) + 1;
     if (recurSet.has(r.id)) recur[g] = (recur[g] || 0) + 1;
   });
-
-  const { data: cotis } = await sb.from("cotizaciones_maestro").select("maestro_id, nivel, monto");
 
   const niveles = Array.from(new Set((grupos || []).map((g) => g.nivel).filter(Boolean))).sort();
 
