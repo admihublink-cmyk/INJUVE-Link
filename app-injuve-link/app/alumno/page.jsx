@@ -161,6 +161,8 @@ export default function Alumno() {
           </section>
         </div>
 
+        <Reinscripcion />
+
         {Array.isArray(data.sesiones) && data.sesiones.length > 0 && (
           <section className="al-card entra d3" style={{ marginTop: 14 }}>
             <h3>Próximas clases</h3>
@@ -193,6 +195,62 @@ export default function Alumno() {
         </p>
       </div>
     </main>
+  );
+}
+
+// Reinscripción: muestra el monto (calculado con la regla Burlington) y permite pedir la liga de pago.
+function Reinscripcion() {
+  const [d, setD] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function cargar() {
+    try {
+      const r = await fetch("/api/alumno/reinscripcion");
+      if (r.ok) setD(await r.json());
+    } catch {}
+  }
+  useEffect(() => { cargar(); }, []);
+
+  async function pedir() {
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch("/api/alumno/reinscripcion", { method: "POST" });
+      const x = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(x.error || "No pudimos registrar tu solicitud.");
+      cargar();
+    } catch (e) { setErr(e.message); }
+    setBusy(false);
+  }
+
+  if (!d) return null;
+  const money = (n) => "$" + (Number(n) || 0).toLocaleString("es-MX");
+
+  return (
+    <section className="al-card entra d3" style={{ marginTop: 14 }}>
+      <h3>Reinscríbete al siguiente bimestre</h3>
+      {d.solicitada ? (
+        <div>
+          <p style={{ color: "var(--texto)", margin: "6px 0" }}>
+            ✅ Ya registramos tu solicitud de reinscripción por <strong>{money(d.monto)}</strong>.
+            {d.estado === "liga_generada" ? " Tu liga de pago está lista; te la enviamos por WhatsApp." : " En breve te enviamos tu liga de pago por WhatsApp."}
+          </p>
+        </div>
+      ) : (
+        <div>
+          <p style={{ color: "var(--gris)", margin: "6px 0 4px" }}>
+            Tu reinscripción es de <strong style={{ color: "var(--texto)" }}>{money(d.monto)}</strong>
+            {d.burlington
+              ? " (solo inscripción; tu material Burlington sigue vigente)."
+              : " (inscripción + material Burlington, que se renueva este periodo)."}
+          </p>
+          <button className="btn btn-cta" style={{ marginTop: 10 }} onClick={pedir} disabled={busy}>
+            {busy ? "Registrando…" : "Reinscribirme"}
+          </button>
+          {err && <p className="nota" role="status" style={{ background: "rgba(179,38,30,0.35)", borderRadius: 12, padding: "10px 14px" }}>{err}</p>}
+        </div>
+      )}
+    </section>
   );
 }
 
