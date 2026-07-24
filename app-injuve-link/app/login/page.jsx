@@ -6,8 +6,8 @@ import Globo3D from "../components/Globo3D";
 
 export default function Login() {
   const router = useRouter();
-  const [clave, setClave] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
 
@@ -19,7 +19,7 @@ export default function Login() {
       const r = await fetch("/api/alumno/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clave, whatsapp }),
+        body: JSON.stringify({ correo, password }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || "No pudimos iniciar tu sesión.");
@@ -39,22 +39,22 @@ export default function Login() {
         <p className="sub">La Nueva Escuela INJUVE · Portal del alumno</p>
         <form onSubmit={entrar}>
           <input
-            type="text"
-            placeholder="Clave de alumno (INJL-26-0000)"
-            value={clave}
-            onChange={(e) => setClave(e.target.value.toUpperCase())}
-            autoCapitalize="characters"
+            type="email"
+            placeholder="Correo"
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
             autoComplete="username"
-            aria-label="Clave de alumno"
+            autoCapitalize="none"
+            inputMode="email"
+            aria-label="Correo"
           />
           <input
-            type="tel"
-            inputMode="numeric"
-            placeholder="WhatsApp (10 dígitos)"
-            value={whatsapp}
-            onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 10))}
-            autoComplete="tel"
-            aria-label="WhatsApp"
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            aria-label="Contraseña"
           />
           <button type="submit" className="btn btn-negro" disabled={cargando}>
             {cargando ? "Entrando…" : "Iniciar sesión"}
@@ -65,7 +65,7 @@ export default function Login() {
             {error}
           </p>
         )}
-        <p className="nota">Usa la clave que te llegó por correo y WhatsApp al inscribirte.</p>
+        <p className="nota">Entra con tu correo. Si es tu primer acceso, usa la contraseña que te enviamos y crea la tuya.</p>
         <p className="nota">
           ¿Aún no eres parte? <Link href="/inscripcion">Inscríbete aquí</Link>
         </p>
