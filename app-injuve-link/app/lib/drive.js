@@ -79,3 +79,33 @@ export async function drivePerfil(token) {
   const j = await r.json().catch(() => ({}));
   return j.user || null;
 }
+
+// Sube un archivo (base64) a la carpeta "INJUVE Link" del Drive. Devuelve { id, link } o { error }.
+export async function uploadFile(sb, { name, mimeType, dataB64 }) {
+  const token = await accessToken(sb);
+  if (!token) return { error: "Google Drive no está conectado." };
+  let parent = null;
+  try { parent = await ensureFolder(sb, token); } catch {}
+  const metadata = { name: name || "documento" };
+  if (parent) metadata.parents = [parent];
+  const boundary = "injuvelink" + Math.random().toString(36).slice(2);
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+    `--${boundary}\r\nContent-Type: ${mimeType || "application/octet-stream"}\r\nContent-Transfer-Encoding: base64\r\n\r\n${dataB64}\r\n` +
+    `--${boundary}--`;
+  const r = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.id) return { error: (j.error && j.error.message) || "No se pudo subir el archivo a Drive." };
+  return { id: j.id, link: j.webViewLink || ("https://drive.google.com/file/d/" + j.id + "/view") };
+}
+
+export async function deleteFile(sb, fileId) {
+  if (!fileId) return;
+  const token = await accessToken(sb);
+  if (!token) return;
+  try { await fetch("https://www.googleapis.com/drive/v3/files/" + fileId, { method: "DELETE", headers: { Authorization: "Bearer " + token } }); } catch {}
+}
