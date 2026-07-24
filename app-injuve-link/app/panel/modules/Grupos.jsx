@@ -45,6 +45,9 @@ function Grupos() {
 
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
 
+      <OfertaGrupos />
+
+      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--gris)", margin: "4px 2px 8px" }}>Grupos del periodo (operativos)</div>
       <div className="u-card">
         {cargando ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
@@ -224,6 +227,195 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
           <button type="submit" className={"u-btn" + (modal.tipo === "borrar" ? " dan" : "")} disabled={busy}>
             {busy ? "…" : modal.tipo === "borrar" ? "Sí, borrar" : modal.tipo === "nuevo" ? "Crear grupo" : "Guardar"}
           </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+
+// Catálogo de grupos ofertados en el formulario de inscripción (los publica el superadmin).
+function OfertaGrupos() {
+  const [abierto, setAbierto] = useState(false);
+  const [data, setData] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+  const [modal, setModal] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const r = await fetch("/api/panel/oferta");
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo cargar la oferta.");
+      setData(d);
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  useEffect(() => { if (abierto && !data) cargar(); /* eslint-disable-next-line */ }, [abierto]);
+
+  async function publicar(g) {
+    setBusyId(g.id); setError("");
+    try {
+      const r = await fetch("/api/panel/oferta", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: g.id, publicado: !g.publicado }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo actualizar.");
+      cargar();
+    } catch (e) { setError(e.message); }
+    setBusyId(null);
+  }
+  async function borrar(g) {
+    if (!window.confirm(`¿Borrar el grupo ofertado ${g.codigo || g.nivel}?`)) return;
+    setBusyId(g.id); setError("");
+    try {
+      const r = await fetch("/api/panel/oferta?id=" + encodeURIComponent(g.id), { method: "DELETE" });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo borrar.");
+      cargar();
+    } catch (e) { setError(e.message); }
+    setBusyId(null);
+  }
+
+  const grupos = data?.grupos || [];
+  const puedeEditar = data?.puede_editar;
+  const puedeBorrar = data?.puede_borrar;
+
+  return (
+    <div className="u-card" style={{ marginBottom: 16, overflow: "hidden" }}>
+      <button onClick={() => setAbierto((v) => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "13px 18px", background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 700, fontSize: 14.5, color: "var(--negro)" }}>
+          <Ico n="inscripciones" size={17} /> Grupos ofertados en el formulario
+          {data && <span className="u-badge on" style={{ marginLeft: 4 }}>{data.publicados} publicados</span>}
+        </span>
+        <span style={{ display: "inline-flex", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .2s", color: "var(--gris)" }}>
+          <Ico n="chevron" size={16} />
+        </span>
+      </button>
+
+      {abierto && (
+        <div style={{ padding: "0 18px 18px" }}>
+          <p style={{ fontSize: 12.5, color: "var(--gris)", marginBottom: 12, maxWidth: "72ch" }}>
+            Estos son los horarios que ve el aspirante en el formulario de inscripción. Publica aquí lo que se oferta este periodo;
+            los grupos operativos reales (con maestro y Meet) se crean después, ya con el cotejo.
+          </p>
+          {error && <div className="u-err" style={{ marginBottom: 12 }}>{error}</div>}
+          {puedeEditar && (
+            <button className="u-btn" style={{ marginBottom: 12 }} onClick={() => setModal({ tipo: "nuevo" })}>
+              <Ico n="plus" size={15} /> Nuevo grupo ofertado
+            </button>
+          )}
+          {cargando ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
+          ) : !grupos.length ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--gris)" }}>Aún no publicas grupos. El formulario solo mostrará “Requiero examen de ubicación”.</div>
+          ) : (
+            <div className="u-tablewrap">
+              <table className="u-table">
+                <thead>
+                  <tr><th>Código</th><th>Nivel</th><th>Horario</th><th style={{ textAlign: "center" }}>Cupo</th><th>Estado</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
+                </thead>
+                <tbody>
+                  {grupos.map((g) => (
+                    <tr key={g.id} style={{ opacity: g.publicado ? 1 : 0.55 }}>
+                      <td style={{ fontWeight: 700 }}>{g.codigo || "—"}</td>
+                      <td><span className="u-rol">{g.nivel || "—"}</span></td>
+                      <td style={{ color: "var(--gris)", fontSize: 13 }}>
+                        {fmtDias(g.dias) && <div style={{ color: "var(--texto)", fontWeight: 600 }}>{fmtDias(g.dias)}</div>}
+                        <div>{g.horario || "—"}</div>
+                      </td>
+                      <td style={{ textAlign: "center" }}>{g.cupo ?? "—"}</td>
+                      <td><span className={"u-badge " + (g.publicado ? "on" : "off")}>{g.publicado ? "Publicado" : "Oculto"}</span></td>
+                      <td>
+                        <div className="u-acts">
+                          {puedeEditar && <button className="u-mini" onClick={() => setModal({ tipo: "editar", grupo: g })}>Editar</button>}
+                          {puedeEditar && <button className="u-mini" onClick={() => publicar(g)} disabled={busyId === g.id}>{g.publicado ? "Ocultar" : "Publicar"}</button>}
+                          {puedeBorrar && <button className="u-mini dan" onClick={() => borrar(g)} disabled={busyId === g.id}>Borrar</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {modal && <OfertaModal modal={modal} onClose={() => setModal(null)} onDone={() => { setModal(null); cargar(); }} />}
+    </div>
+  );
+}
+
+function OfertaModal({ modal, onClose, onDone }) {
+  const g = modal.grupo || {};
+  const [v, setV] = useState({
+    codigo: g.codigo || "", periodo: g.periodo || "JUL-2026", horario: g.horario || "",
+    cupo: g.cupo != null ? String(g.cupo) : "", orden: g.orden != null ? String(g.orden) : "",
+  });
+  const [niveles, setNiveles] = useState(() => (String(g.nivel || "").match(/\d+/g) || []).filter((n) => Number(n) >= 1 && Number(n) <= 10));
+  const [dias, setDias] = useState(() => String(g.dias || "").split(",").map((s) => s.trim()).filter(Boolean));
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setV((s) => ({ ...s, [k]: e.target.value }));
+  const toggle = (arr, setArr, n) => setArr(arr.includes(n) ? arr.filter((x) => x !== n) : [...arr, n]);
+  const DIAS = [["1", "Lun"], ["2", "Mar"], ["3", "Mié"], ["4", "Jue"], ["5", "Vie"], ["6", "Sáb"], ["7", "Dom"]];
+
+  async function enviar(e) {
+    e.preventDefault(); setError(""); setBusy(true);
+    try {
+      const nivOrd = niveles.slice().sort((a, b) => Number(a) - Number(b));
+      const nivel = nivOrd.length === 2 ? `${nivOrd[0]} y ${nivOrd[1]}` : nivOrd.join(", ");
+      const diasOrd = dias.slice().sort((a, b) => Number(a) - Number(b)).join(",");
+      const body = { codigo: v.codigo, periodo: v.periodo, nivel, horario: v.horario, dias: diasOrd, cupo: v.cupo, orden: v.orden };
+      let r;
+      if (modal.tipo === "nuevo") {
+        r = await fetch("/api/panel/oferta", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, publicado: true }) });
+      } else {
+        r = await fetch("/api/panel/oferta", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: g.id, ...body }) });
+      }
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo guardar.");
+      onDone();
+    } catch (err) { setError(err.message); setBusy(false); }
+  }
+
+  return (
+    <div className="u-modal-bg" onClick={onClose}>
+      <form className="u-modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()} onSubmit={enviar}>
+        <h3>{modal.tipo === "nuevo" ? "Nuevo grupo ofertado" : "Editar grupo ofertado"}</h3>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input className="u-inp" style={{ flex: "1 1 140px" }} placeholder="Código (ej. N1-A)" value={v.codigo} onChange={set("codigo")} />
+          <input className="u-inp" style={{ flex: "0 0 110px" }} placeholder="Periodo" value={v.periodo} onChange={set("periodo")} />
+        </div>
+        <div style={{ marginTop: 8, fontWeight: 700, fontSize: 13 }}>Niveles <span style={{ fontWeight: 400, color: "var(--gris)" }}>(1 al 10)</span></div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"].map((n) => (
+            <button type="button" key={n} onClick={() => toggle(niveles, setNiveles, n)}
+              style={{ minWidth: 36, padding: "6px 9px", borderRadius: 9, border: "1px solid var(--borde)", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit", background: niveles.includes(n) ? "var(--naranja)" : "rgba(255,255,255,0.8)", color: niveles.includes(n) ? "#fff" : "var(--texto)" }}>{n}</button>
+          ))}
+        </div>
+        <div style={{ marginTop: 10, fontWeight: 700, fontSize: 13 }}>Días</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+          {DIAS.map(([val, lab]) => (
+            <button type="button" key={val} onClick={() => toggle(dias, setDias, val)}
+              style={{ padding: "6px 11px", borderRadius: 9, border: "1px solid var(--borde)", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", background: dias.includes(val) ? "var(--naranja)" : "rgba(255,255,255,0.8)", color: dias.includes(val) ? "#fff" : "var(--texto)" }}>{lab}</button>
+          ))}
+        </div>
+        <input className="u-inp" placeholder="Horario que ve el alumno (ej. 5:00 pm - 7:00 pm)" value={v.horario} onChange={set("horario")} />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <label style={{ flex: "1 1 90px", fontSize: 11.5, color: "var(--gris)", fontWeight: 600 }}>Cupo (opcional)
+            <input className="u-inp" style={{ marginTop: 3 }} type="number" min="0" value={v.cupo} onChange={set("cupo")} />
+          </label>
+          <label style={{ flex: "0 0 90px", fontSize: 11.5, color: "var(--gris)", fontWeight: 600 }}>Orden
+            <input className="u-inp" style={{ marginTop: 3 }} type="number" value={v.orden} onChange={set("orden")} />
+          </label>
+        </div>
+        {error && <div className="u-err">{error}</div>}
+        <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
+          <button type="button" className="u-btn sec" onClick={onClose}>Cancelar</button>
+          <button type="submit" className="u-btn" disabled={busy}>{busy ? "…" : modal.tipo === "nuevo" ? "Publicar" : "Guardar"}</button>
         </div>
       </form>
     </div>
