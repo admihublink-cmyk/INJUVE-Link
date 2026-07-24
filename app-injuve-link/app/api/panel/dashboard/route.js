@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supa, leerSesion } from "../../../lib/auth";
+import { driveConectado, driveConfigurado } from "../../../lib/drive";
 
 async function actor(sb, req) {
   const s = leerSesion(req);
@@ -69,6 +70,13 @@ export async function GET(req) {
   });
   proximas.sort((a, b) => (a.fecha + (a.hora || "")).localeCompare(b.fecha + (b.hora || "")));
 
+  const drive_conectado = await driveConectado(sb);
+  let drive_email = null;
+  if (drive_conectado) {
+    const { data: dc } = await sb.from("app_config").select("valor").eq("clave", "google_drive_email").maybeSingle();
+    drive_email = dc?.valor || null;
+  }
+
   return NextResponse.json({
     alumnos,
     grupos,
@@ -78,5 +86,9 @@ export async function GET(req) {
     sin_grupo: Math.max(alumnos - en_grupo, 0),
     grupos_lista,
     proximas: proximas.slice(0, 20),
+    drive_conectado,
+    drive_configurado: driveConfigurado(),
+    drive_email,
+    puede_drive: a.permisos.includes("PROGRAMA_CONFIG"),
   });
 }
