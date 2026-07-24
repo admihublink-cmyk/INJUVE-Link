@@ -21,10 +21,11 @@ export async function GET(req) {
   const pagina = Math.max(1, parseInt(url.searchParams.get("pagina") || "1", 10) || 1);
   const desde = (pagina - 1) * POR_PAGINA;
 
+  // Base: todos los inscritos menos las bajas (incluye registrados sin pago).
   let query = sb
     .from("enrollments")
-    .select("id, folio, nombre, whatsapp, correo, municipio, colonia, sexo, grupo, estado, notas_admin, password_cambiada", { count: "exact" })
-    .eq("activo", true);
+    .select("id, folio, nombre, whatsapp, correo, municipio, colonia, sexo, grupo, grupo_solicitado, estado, activo, notas_admin, password_cambiada", { count: "exact" })
+    .neq("estado", "baja");
 
   // Búsqueda (se limpian caracteres que romperían el filtro PostgREST).
   const qs = q.replace(/[%,()*\\:]/g, " ").trim().slice(0, 60);
@@ -32,6 +33,8 @@ export async function GET(req) {
     query = query.or(`nombre.ilike.%${qs}%,folio.ilike.%${qs}%,whatsapp.ilike.%${qs}%,correo.ilike.%${qs}%`);
   }
   if (filtro === "sin_grupo") query = query.is("grupo", null);
+  else if (filtro === "pagados") query = query.eq("activo", true);
+  else if (filtro === "sin_pago") query = query.eq("activo", false);
   else if (filtro && filtro !== "todos") query = query.eq("grupo", filtro);
 
   query = query.order("nombre", { ascending: true }).range(desde, desde + POR_PAGINA - 1);
@@ -45,19 +48,27 @@ export async function GET(req) {
     .order("nivel", { ascending: true })
     .order("codigo", { ascending: true });
 
-  // Conteo de "sin grupo" para el filtro.
-  const { count: sinGrupo } = await sb
-    .from("enrollments")
-    .select("*", { count: "exact", head: true })
-    .eq("activo", true)
-    .is("grupo", null);
+  // Conteos para los filtros (base: no baja).
+  const cont = async (fn) => {
+    let c = sb.from("enrollments").select("*", { count: "exact", head: true }).neq("estado", "baja");
+    c = fn(c);
+    const { count } = await c;
+    return count || 0;
+  };
+  const [sinGrupo, pagados, sinPago] = await Promise.all([
+    cont((c) => c.is("grupo", null)),
+    cont((c) => c.eq("activo", true)),
+    cont((c) => c.eq("activo", false)),
+  ]);
 
   return NextResponse.json({
     rows: rows || [],
     total: count || 0,
     pagina,
     por_pagina: POR_PAGINA,
-    sin_grupo: sinGrupo || 0,
+    sin_grupo: sinGrupo,
+    pagados,
+    sin_pago: sinPago,
     grupos: grupos || [],
     puede_asignar: a.permisos.includes("INSC_ASIGNAR_GRUPO"),
     puede_estado: a.permisos.includes("INSC_ESTADO"),
