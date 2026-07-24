@@ -949,6 +949,11 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
     if (src.length) return src.map((s) => ({ dia: String(s.dia), hora: String(s.hora_inicio || "").slice(0, 5), dur: String(s.duracion_horas ?? "2") }));
     return [{ dia: "", hora: "", dur: "2" }];
   });
+  const [niveles, setNiveles] = useState(() => {
+    const m = String(g.nivel || "").match(/\d+/g) || [];
+    return m.filter((n) => Number(n) >= 1 && Number(n) <= 10);
+  });
+  const toggleNivel = (n) => setNiveles((s) => (s.includes(n) ? s.filter((x) => x !== n) : [...s, n]));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setV((s) => ({ ...s, [k]: e.target.value }));
@@ -967,14 +972,16 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
     e.preventDefault(); setError(""); setBusy(true);
     try {
       const horario_slots = clases.filter((c) => c.dia && c.hora).map((c) => ({ dia: Number(c.dia), hora: c.hora, dur: Number(c.dur) || 2 }));
+      const nivOrd = niveles.slice().sort((a, b) => Number(a) - Number(b));
+      const nivel = nivOrd.length === 2 ? `${nivOrd[0]} y ${nivOrd[1]}` : nivOrd.join(", ");
       let r;
       if (modal.tipo === "borrar") {
         r = await fetch("/api/panel/grupos", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: g.id }) });
       } else if (modal.tipo === "nuevo") {
-        r = await fetch("/api/panel/grupos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: v.codigo, periodo: v.periodo, nivel: v.nivel, maestro: v.maestro, horario: v.horario, cupo: v.cupo, liga_meet: v.liga_meet, horario_slots }) });
+        r = await fetch("/api/panel/grupos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: v.codigo, periodo: v.periodo, nivel, maestro: v.maestro, horario: v.horario, cupo: v.cupo, liga_meet: v.liga_meet, horario_slots }) });
       } else {
         const body = { id: g.id };
-        if (puedeEditar) { body.nivel = v.nivel; body.horario = v.horario; body.cupo = v.cupo; body.liga_meet = v.liga_meet; body.horario_slots = horario_slots; }
+        if (puedeEditar) { body.nivel = nivel; body.horario = v.horario; body.cupo = v.cupo; body.liga_meet = v.liga_meet; body.horario_slots = horario_slots; }
         if (puedeMaestro) { body.maestro = v.maestro; }
         r = await fetch("/api/panel/grupos", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
@@ -997,12 +1004,25 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
             {modal.tipo === "nuevo"
               ? <input className="u-inp" placeholder="Código (ej. G16)" value={v.codigo} onChange={set("codigo")} />
               : <input className="u-inp" value={v.codigo} disabled style={{ opacity: 0.6 }} />}
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <input className="u-inp" style={{ flex: "1 1 140px" }} placeholder="Nivel (ej. 1 y 2)" value={v.nivel} onChange={set("nivel")} />
-              <input className="u-inp" style={{ flex: "1 1 100px" }} type="number" min="0" placeholder="Cupo" value={v.cupo} onChange={set("cupo")} />
+            <div style={{ marginTop: 8, fontWeight: 700, fontSize: 13, color: "var(--texto)" }}>Niveles <span style={{ fontWeight: 400, color: "var(--gris)" }}>(elige uno o varios, del 1 al 10)</span></div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+              {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"].map((n) => (
+                <button type="button" key={n} onClick={() => toggleNivel(n)}
+                  style={{ minWidth: 38, padding: "6px 10px", borderRadius: 9, border: "1px solid var(--borde)", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit", background: niveles.includes(n) ? "var(--naranja)" : "rgba(255,255,255,0.8)", color: niveles.includes(n) ? "#fff" : "var(--texto)" }}>
+                  {n}
+                </button>
+              ))}
             </div>
-            <input className="u-inp" placeholder="Maestro" value={v.maestro} onChange={set("maestro")} list="lista-maestros" />
-            <datalist id="lista-maestros">{maestros.map((m) => <option key={m} value={m} />)}</datalist>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10, alignItems: "flex-end" }}>
+              <div style={{ flex: "1 1 200px" }}>
+                <div style={{ fontSize: 11.5, color: "var(--gris)", marginBottom: 3, fontWeight: 600 }}>Maestro</div>
+                <Sel width="100%" placeholder="Sin asignar" ariaLabel="Maestro" value={v.maestro} onChange={(val) => setV((s) => ({ ...s, maestro: val }))}
+                  options={[{ value: "", label: "Sin asignar" }, ...maestros.map((m) => ({ value: m, label: m }))]} />
+              </div>
+              <label style={{ flex: "0 0 92px", fontSize: 11.5, color: "var(--gris)", fontWeight: 600 }}>Cupo
+                <input className="u-inp" style={{ marginTop: 3 }} type="number" min="0" placeholder="0" value={v.cupo} onChange={set("cupo")} />
+              </label>
+            </div>
             <input className="u-inp" placeholder="Horario (texto que ve el alumno, ej. 5:00 pm - 7:00 pm)" value={v.horario} onChange={set("horario")} />
 
             <div style={{ marginTop: 10, fontWeight: 700, fontSize: 13, color: "var(--texto)" }}>Clases de la semana <span style={{ fontWeight: 400, color: "var(--gris)" }}>(día y hora de cada clase; alimenta el calendario y el pago)</span></div>
