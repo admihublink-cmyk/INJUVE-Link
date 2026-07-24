@@ -41,6 +41,7 @@ const ICONS = {
   documentos: (<><path d="M6 3h7l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M13 3v5h5" /><path d="M8.5 13h7M8.5 16.5h7M8.5 9.5h2.5" /></>),
   upload: (<><path d="M12 20V9" /><path d="M8 12.5l4-4 4 4" /><path d="M5 4.5h14" /></>),
   dot: (<><circle cx="12" cy="12" r="3" /></>),
+  cotejo: (<><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z" /><path d="M13.5 3.5v4.5h4.5" /><path d="M8.3 13l1.6 1.6 3.2-3.4" /><path d="M8.5 17.5h6" /></>),
 };
 
 function Ico({ n, size = 20, className }) {
