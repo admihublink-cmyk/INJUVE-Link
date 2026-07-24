@@ -10,10 +10,12 @@ export async function GET() {
   } catch {
     return NextResponse.json({ grupos: [] });
   }
+  // Se muestran los grupos que el superadmin publicó para este periodo.
   const { data } = await sb
-    .from("groups")
+    .from("grupos_ofertados")
     .select("codigo, nivel, horario, dias")
-    .eq("activo", true)
+    .eq("publicado", true)
+    .order("orden", { ascending: true })
     .order("nivel", { ascending: true })
     .order("codigo", { ascending: true });
   return NextResponse.json({ grupos: data || [] });
