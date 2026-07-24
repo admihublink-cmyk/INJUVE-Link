@@ -1,30 +1,12 @@
 import { NextResponse } from "next/server";
-import { supa, leerSesion } from "../../../lib/auth";
+import { supa } from "../../../lib/auth";
+import { actor, mant, noAuth, noPerm } from "../../../lib/panelAuth";
 
 // Roles que se pueden asignar a un usuario del equipo (con acceso al panel).
 // Se excluyen "alumno" (entra por /login con folio) y "publico".
 const ROLES_STAFF = ["odp", "administracion", "coordinador_atencion", "maestro", "agente_atencion"];
 
-// Lee la sesión y devuelve el usuario que actúa + sus permisos (o null).
-async function actor(sb, req) {
-  const s = leerSesion(req);
-  if (!s) return null;
-  const { data: u } = await sb
-    .from("usuarios")
-    .select("id, rol_codigo, activo")
-    .eq("id", s.id)
-    .maybeSingle();
-  if (!u || !u.activo) return null;
-  const { data: perms } = await sb
-    .from("roles_permisos")
-    .select("permiso_codigo")
-    .eq("rol_codigo", u.rol_codigo);
-  return { id: u.id, rol: u.rol_codigo, permisos: (perms || []).map((p) => p.permiso_codigo) };
-}
-
-const mant = () => NextResponse.json({ error: "El sistema está en mantenimiento." }, { status: 503 });
-const noAuth = () => NextResponse.json({ error: "No autenticado." }, { status: 401 });
-const noPerm = () => NextResponse.json({ error: "No tienes permiso para esta acción." }, { status: 403 });
+// actor() y respuestas (mant/noAuth/noPerm) viven en lib/panelAuth.js.
 const correoOk = (c) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c);
 
 // GET: lista de usuarios + roles asignables + flags de permiso del que consulta.
