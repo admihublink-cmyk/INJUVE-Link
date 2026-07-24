@@ -31,7 +31,7 @@ export async function GET(req) {
   // Lista de grupos activos + inscritos por grupo.
   const { data: gruposData } = await sb
     .from("groups")
-    .select("codigo, nivel, maestro, horario, cupo, liga_meet, dias, hora_inicio, duracion_horas")
+    .select("id, codigo, nivel, maestro, horario, cupo, liga_meet, dias, hora_inicio, duracion_horas")
     .eq("activo", true)
     .order("nivel", { ascending: true })
     .order("codigo", { ascending: true });
@@ -44,27 +44,30 @@ export async function GET(req) {
     if (g) { conteo[g] = (conteo[g] || 0) + 1; en_grupo += 1; }
   });
 
-  const grupos_lista = (gruposData || []).map((g) => ({ ...g, inscritos: conteo[(g.codigo || "").trim()] || 0 }));
+  // Horario por clase de cada grupo (tabla grupo_horario).
+  const { data: slots } = await sb.from("grupo_horario").select("group_id, dia, hora_inicio, duracion_horas, orden").order("orden", { ascending: true });
+  const slotsByGroup = {};
+  (slots || []).forEach((s) => { (slotsByGroup[s.group_id] = slotsByGroup[s.group_id] || []).push({ dia: s.dia, hora_inicio: s.hora_inicio, duracion_horas: s.duracion_horas }); });
 
-  // Próxima clase de cada grupo, calculada desde el horario semanal (dias = ISO 1-7, hora_inicio).
-  // Fecha "hoy" en hora de Nuevo León (UTC-6, sin horario de verano).
+  const grupos_lista = (gruposData || []).map((g) => ({ ...g, inscritos: conteo[(g.codigo || "").trim()] || 0, horario_slots: slotsByGroup[g.id] || [] }));
+
+  // Agenda de próximas clases (7 días) desde el horario por clase. Hoy en hora de Nuevo León (UTC-6).
   const hoyMx = new Date(Date.now() - 6 * 3600 * 1000);
   const base = Date.UTC(hoyMx.getUTCFullYear(), hoyMx.getUTCMonth(), hoyMx.getUTCDate());
-  const proximaFecha = (diasCsv) => {
-    const dias = String(diasCsv || "").split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => n >= 1 && n <= 7);
-    if (!dias.length) return null;
-    for (let o = 0; o < 14; o++) {
-      const d = new Date(base + o * 86400000);
-      const iso = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
-      if (dias.includes(iso)) return d.toISOString().slice(0, 10);
-    }
-    return null;
-  };
-  const proximas = (gruposData || [])
-    .map((g) => ({ codigo: g.codigo, nivel: g.nivel, maestro: g.maestro, horario: g.horario, hora_inicio: g.hora_inicio, liga_meet: g.liga_meet, fecha: proximaFecha(g.dias) }))
-    .filter((x) => x.fecha)
-    .sort((a, b) => (a.fecha + (a.hora_inicio || "")).localeCompare(b.fecha + (b.hora_inicio || "")))
-    .slice(0, 12);
+  const proximas = [];
+  (gruposData || []).forEach((g) => {
+    (slotsByGroup[g.id] || []).forEach((s) => {
+      for (let o = 0; o < 7; o++) {
+        const dt = new Date(base + o * 86400000);
+        const iso = dt.getUTCDay() === 0 ? 7 : dt.getUTCDay();
+        if (iso === s.dia) {
+          proximas.push({ codigo: g.codigo, nivel: g.nivel, maestro: g.maestro, liga_meet: g.liga_meet, fecha: dt.toISOString().slice(0, 10), hora: s.hora_inicio });
+          break;
+        }
+      }
+    });
+  });
+  proximas.sort((a, b) => (a.fecha + (a.hora || "")).localeCompare(b.fecha + (b.hora || "")));
 
   return NextResponse.json({
     alumnos,
@@ -74,6 +77,6 @@ export async function GET(req) {
     en_grupo,
     sin_grupo: Math.max(alumnos - en_grupo, 0),
     grupos_lista,
-    proximas,
+    proximas: proximas.slice(0, 20),
   });
 }
