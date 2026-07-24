@@ -392,10 +392,10 @@ function Shell({ sesion, onSalir }) {
         .u-btn.dan:hover{background:#8f1e18;}
         .u-btn:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
         /* —— Tarjetas y tablas —— */
-        .u-glass{background:rgba(248,214,170,0.40);-webkit-backdrop-filter:blur(18px) saturate(200%);backdrop-filter:blur(18px) saturate(200%);
-          border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);box-shadow:0 16px 36px -18px rgba(150,84,8,0.36), inset 0 1px 0 rgba(255,255,255,0.7);}
-        .u-card{background:rgba(248,214,170,0.40);-webkit-backdrop-filter:blur(18px) saturate(200%);backdrop-filter:blur(18px) saturate(200%);
-          border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);overflow:hidden;box-shadow:0 16px 36px -18px rgba(150,84,8,0.36), inset 0 1px 0 rgba(255,255,255,0.7);}
+        .u-glass{background:rgba(248,214,170,0.24);-webkit-backdrop-filter:blur(18px) saturate(185%);backdrop-filter:blur(18px) saturate(185%);
+          border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);box-shadow:0 16px 36px -18px rgba(150,84,8,0.34), inset 0 1px 0 rgba(255,255,255,0.72);}
+        .u-card{background:rgba(248,214,170,0.24);-webkit-backdrop-filter:blur(18px) saturate(185%);backdrop-filter:blur(18px) saturate(185%);
+          border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);overflow:hidden;box-shadow:0 16px 36px -18px rgba(150,84,8,0.34), inset 0 1px 0 rgba(255,255,255,0.72);}
         .u-tablewrap{overflow-x:auto;}
         .u-table{width:100%;border-collapse:collapse;font-size:14px;}
         .u-table th{text-align:left;padding:12px 16px;background:rgba(241,139,17,0.12);color:#5A4326;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--borde);white-space:nowrap;}
