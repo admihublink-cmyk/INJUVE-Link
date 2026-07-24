@@ -20,33 +20,30 @@ export async function GET(req) {
   if (!a) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   if (!a.permisos.includes("DASHBOARD_VER")) return NextResponse.json({ error: "No tienes permiso." }, { status: 403 });
 
-  const contar = async (fn) => {
-    try { const { count } = await fn(); return count || 0; } catch { return 0; }
-  };
+  const contar = (fn) => fn().then(({ count }) => count || 0).catch(() => 0);
 
-  const alumnos = await contar(() => sb.from("enrollments").select("*", { count: "exact", head: true }).eq("activo", true));
-  const grupos = await contar(() => sb.from("groups").select("*", { count: "exact", head: true }).eq("activo", true));
-  const maestros = await contar(() => sb.from("usuarios").select("*", { count: "exact", head: true }).eq("rol_codigo", "maestro").eq("activo", true));
-  const casos = await contar(() => sb.from("casos_atencion").select("*", { count: "exact", head: true }).neq("estado", "resuelto"));
+  // Consultas independientes en paralelo (antes eran ~8 viajes en serie).
+  const [alumnos, grupos, maestros, casos, gruposRes, inscRes, slotsRes, drive_conectado] = await Promise.all([
+    contar(() => sb.from("enrollments").select("*", { count: "exact", head: true }).eq("activo", true)),
+    contar(() => sb.from("groups").select("*", { count: "exact", head: true }).eq("activo", true)),
+    contar(() => sb.from("usuarios").select("*", { count: "exact", head: true }).eq("rol_codigo", "maestro").eq("activo", true)),
+    contar(() => sb.from("casos_atencion").select("*", { count: "exact", head: true }).neq("estado", "resuelto")),
+    sb.from("groups").select("id, codigo, nivel, maestro, horario, cupo, liga_meet, dias, hora_inicio, duracion_horas").eq("activo", true).order("nivel", { ascending: true }).order("codigo", { ascending: true }),
+    sb.from("enrollments").select("grupo").eq("activo", true),
+    sb.from("grupo_horario").select("group_id, dia, hora_inicio, duracion_horas, orden").order("orden", { ascending: true }),
+    driveConectado(sb),
+  ]);
+  const gruposData = gruposRes.data;
+  const inscRows = inscRes.data;
+  const slots = slotsRes.data;
 
-  // Lista de grupos activos + inscritos por grupo.
-  const { data: gruposData } = await sb
-    .from("groups")
-    .select("id, codigo, nivel, maestro, horario, cupo, liga_meet, dias, hora_inicio, duracion_horas")
-    .eq("activo", true)
-    .order("nivel", { ascending: true })
-    .order("codigo", { ascending: true });
-
-  const { data: inscRows } = await sb.from("enrollments").select("grupo").eq("activo", true);
+  // Inscritos por grupo.
   const conteo = {};
   let en_grupo = 0;
   (inscRows || []).forEach((r) => {
     const g = (r.grupo || "").trim();
     if (g) { conteo[g] = (conteo[g] || 0) + 1; en_grupo += 1; }
   });
-
-  // Horario por clase de cada grupo (tabla grupo_horario).
-  const { data: slots } = await sb.from("grupo_horario").select("group_id, dia, hora_inicio, duracion_horas, orden").order("orden", { ascending: true });
   const slotsByGroup = {};
   (slots || []).forEach((s) => { (slotsByGroup[s.group_id] = slotsByGroup[s.group_id] || []).push({ dia: s.dia, hora_inicio: s.hora_inicio, duracion_horas: s.duracion_horas }); });
 
@@ -70,7 +67,6 @@ export async function GET(req) {
   });
   proximas.sort((a, b) => (a.fecha + (a.hora || "")).localeCompare(b.fecha + (b.hora || "")));
 
-  const drive_conectado = await driveConectado(sb);
   let drive_email = null;
   if (drive_conectado) {
     const { data: dc } = await sb.from("app_config").select("valor").eq("clave", "google_drive_email").maybeSingle();
