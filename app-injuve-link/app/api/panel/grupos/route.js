@@ -27,6 +27,22 @@ function normHora(v) {
   const s = String(v).trim();
   return /^\d{1,2}:\d{2}/.test(s) ? s : null;
 }
+// Horario por clase: array de {dia 1-7, hora, dur}. Devuelve slots limpios.
+function normSlots(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const s of v) {
+    if (!s) continue;
+    const dia = parseInt(s.dia, 10);
+    const hora = normHora(s.hora != null ? s.hora : s.hora_inicio);
+    let dur = Number(s.dur != null ? s.dur : s.duracion_horas);
+    if (!(dia >= 1 && dia <= 7) || !hora) continue;
+    if (isNaN(dur) || dur <= 0) dur = 2;
+    out.push({ dia, hora_inicio: hora, duracion_horas: dur });
+  }
+  return out;
+}
+const diasDeSlots = (slots) => Array.from(new Set(slots.map((s) => s.dia))).sort((x, y) => x - y).join(",");
 
 // Vincula el nombre de maestro a la cuenta de usuario (maestro_id) si coincide.
 async function buscarMaestroId(sb, nombre) {
@@ -55,7 +71,11 @@ export async function GET(req) {
   const conteo = {};
   (inscRows || []).forEach((r) => { const g = (r.grupo || "").trim(); if (g) conteo[g] = (conteo[g] || 0) + 1; });
 
-  const rows = (grupos || []).map((g) => ({ ...g, inscritos: conteo[(g.codigo || "").trim()] || 0 }));
+  const { data: slots } = await sb.from("grupo_horario").select("group_id, dia, hora_inicio, duracion_horas, orden").order("orden", { ascending: true });
+  const slotMap = {};
+  (slots || []).forEach((s) => { (slotMap[s.group_id] = slotMap[s.group_id] || []).push({ dia: s.dia, hora_inicio: s.hora_inicio, duracion_horas: s.duracion_horas }); });
+
+  const rows = (grupos || []).map((g) => ({ ...g, inscritos: conteo[(g.codigo || "").trim()] || 0, horario_slots: slotMap[g.id] || [] }));
 
   const { data: maestrosUsers } = await sb.from("usuarios").select("nombre").eq("rol_codigo", "maestro").eq("activo", true).order("nombre");
   const { data: periodos } = await sb.from("groups").select("periodo");
@@ -89,10 +109,11 @@ export async function POST(req) {
   const horario = String(b.horario || "").trim();
   const cupo = parseInt(b.cupo, 10);
   const liga_meet = String(b.liga_meet || "").trim();
-  const dias = normDias(b.dias);
-  const hora_inicio = normHora(b.hora_inicio);
-  const durNum = b.duracion_horas != null && b.duracion_horas !== "" ? Number(b.duracion_horas) : null;
-  const duracion_horas = durNum != null && !isNaN(durNum) && durNum >= 0 ? durNum : null;
+  const slots = normSlots(b.horario_slots);
+  const dias = slots.length ? diasDeSlots(slots) : normDias(b.dias);
+  const hora_inicio = slots.length ? slots[0].hora_inicio : normHora(b.hora_inicio);
+  const duracion_horas = slots.length ? slots[0].duracion_horas
+    : (b.duracion_horas != null && b.duracion_horas !== "" && !isNaN(Number(b.duracion_horas)) ? Number(b.duracion_horas) : null);
   if (codigo.length < 1) return NextResponse.json({ error: "El código es obligatorio." }, { status: 400 });
   if (isNaN(cupo) || cupo < 0) return NextResponse.json({ error: "El cupo debe ser un número válido." }, { status: 400 });
   if (liga_meet && !ligaOk(liga_meet)) return NextResponse.json({ error: "La liga debe empezar con http:// o https://" }, { status: 400 });
@@ -106,6 +127,9 @@ export async function POST(req) {
   if (error) {
     const dup = /duplicate|unique/i.test(error.message || "");
     return NextResponse.json({ error: dup ? "Ya existe un grupo con ese código." : "No se pudo crear el grupo." }, { status: 400 });
+  }
+  if (data?.id && slots.length) {
+    await sb.from("grupo_horario").insert(slots.map((s, i) => ({ group_id: data.id, dia: s.dia, hora_inicio: s.hora_inicio, duracion_horas: s.duracion_horas, orden: i + 1 })));
   }
   return NextResponse.json({ ok: true, id: data?.id });
 }
@@ -136,7 +160,7 @@ export async function PATCH(req) {
     patch.activo = !!b.activo;
   }
   // Datos de configuración (nivel, horario, cupo, liga_meet) -> GRUPO_CREAR.
-  const cfg = ["nivel", "horario", "cupo", "liga_meet", "dias", "hora_inicio", "duracion_horas"].some((k) => k in b);
+  const cfg = ["nivel", "horario", "cupo", "liga_meet", "dias", "hora_inicio", "duracion_horas", "horario_slots"].some((k) => k in b);
   if (cfg) {
     if (!perms.includes("GRUPO_CREAR")) return noPerm();
     if ("nivel" in b) patch.nivel = b.nivel == null ? null : String(b.nivel).trim() || null;
@@ -157,6 +181,17 @@ export async function PATCH(req) {
       const d = b.duracion_horas === "" || b.duracion_horas == null ? null : Number(b.duracion_horas);
       if (d != null && (isNaN(d) || d < 0)) return NextResponse.json({ error: "Duración no válida." }, { status: 400 });
       patch.duracion_horas = d;
+    }
+    if ("horario_slots" in b) {
+      const slots = normSlots(b.horario_slots);
+      await sb.from("grupo_horario").delete().eq("group_id", id);
+      if (slots.length) {
+        const { error: se } = await sb.from("grupo_horario").insert(slots.map((s, i) => ({ group_id: id, dia: s.dia, hora_inicio: s.hora_inicio, duracion_horas: s.duracion_horas, orden: i + 1 })));
+        if (se) return NextResponse.json({ error: "No se pudo guardar el horario." }, { status: 400 });
+      }
+      patch.dias = slots.length ? diasDeSlots(slots) : null;
+      patch.hora_inicio = slots.length ? slots[0].hora_inicio : null;
+      patch.duracion_horas = slots.length ? slots[0].duracion_horas : null;
     }
   }
 
