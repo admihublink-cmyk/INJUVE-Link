@@ -15,8 +15,8 @@ function DocAvatar({ nombre, size = 44 }) {
   return <div style={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: Math.round(size * 0.36), background: `hsl(${h} 70% 85%)`, color: `hsl(${h} 55% 26%)`, border: "1px solid rgba(255,255,255,0.65)" }}>{docIniciales(nombre)}</div>;
 }
 function DocBadge({ estado, locked }) {
-  const m = { pendiente: ["Pendiente", "rgba(110,98,88,.14)", "#6E6258"], subido: ["En revisión", "rgba(45,125,210,.16)", "#1C5A96"], aprobado: ["Aprobado", "rgba(27,122,61,.16)", "#177A3B"], rechazado: ["Rechazado", "rgba(179,38,30,.14)", "#B3261E"] };
-  const [t, bg, c] = locked ? ["En espera", "rgba(110,98,88,.1)", "#8A8178"] : (m[estado] || m.pendiente);
+  const m = { pendiente: ["Pendiente", "rgba(110,98,88,.14)", "var(--gris)"], subido: ["En revisión", "rgba(45,125,210,.16)", "var(--info)"], aprobado: ["Aprobado", "rgba(27,122,61,.16)", "var(--exito)"], rechazado: ["Rechazado", "rgba(179,38,30,.14)", "var(--alerta)"] };
+  const [t, bg, c] = locked ? ["En espera", "rgba(110,98,88,.1)", "var(--gris-2)"] : (m[estado] || m.pendiente);
   return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", background: bg, color: c }}>{t}</span>;
 }
 function DocBarra({ label, ap, tot, sub }) {
@@ -26,7 +26,7 @@ function DocBarra({ label, ap, tot, sub }) {
     <div style={{ marginTop: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
         <span style={{ color: "var(--texto)", fontWeight: 600 }}>{label}</span>
-        <span style={{ color: full ? "#177A3B" : "var(--gris)", fontWeight: 700 }}>{ap}/{tot}{sub > ap ? ` · ${sub - ap} por revisar` : ""}</span>
+        <span style={{ color: full ? "var(--exito)" : "var(--gris)", fontWeight: 700 }}>{ap}/{tot}{sub > ap ? ` · ${sub - ap} por revisar` : ""}</span>
       </div>
       <div style={{ height: 7, borderRadius: 999, background: "rgba(110,98,88,.14)", overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: full ? "#3B9E63" : "var(--naranja)", borderRadius: 999, transition: "width .3s" }} />
@@ -127,12 +127,12 @@ function Documentos() {
     const verHref = it.es_link ? (it.enlace ? normLink(it.enlace) : null) : it.link;
     return (
       <div key={it.tipo} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 2px", borderBottom: "1px solid var(--borde)" }}>
-        <div style={{ width: 24, flexShrink: 0, display: "flex", justifyContent: "center", color: it.estado === "aprobado" ? "#177A3B" : it.locked ? "#B9AFA4" : "var(--naranja-osc)" }}>
+        <div style={{ width: 24, flexShrink: 0, display: "flex", justifyContent: "center", color: it.estado === "aprobado" ? "var(--exito)" : it.locked ? "#B9AFA4" : "var(--naranja-osc)" }}>
           <Ico n={it.estado === "aprobado" ? "check" : "documentos"} size={18} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 650, color: "var(--texto)", fontSize: 14.5 }}>{it.label}</div>
-          {it.estado === "rechazado" && it.nota && <div style={{ fontSize: 12.5, color: "#B3261E", marginTop: 2 }}>Motivo: {it.nota}</div>}
+          {it.estado === "rechazado" && it.nota && <div style={{ fontSize: 12.5, color: "var(--alerta)", marginTop: 2 }}>Motivo: {it.nota}</div>}
           {it.locked && <div style={{ fontSize: 12.5, color: "var(--gris)", marginTop: 2 }}>Se habilita al aprobar evidencias, ficha, cotización y lista de asistencia.</div>}
         </div>
         <DocBadge estado={it.estado} locked={it.locked} />
@@ -141,7 +141,7 @@ function Documentos() {
           {!it.locked && (it.es_link
             ? <button className="u-mini" disabled={busy} onClick={() => { setLinkVal(it.enlace || ""); setError(""); setLinkModal({ tipo: it.tipo }); }}>{busy ? "…" : (tiene ? "Reemplazar" : "Subir")}</button>
             : <button className="u-mini" disabled={busy} onClick={() => pedirArchivo(cat, it.tipo)}>{busy ? "…" : (tiene ? "Reemplazar" : "Subir")}</button>)}
-          {esAdmin && tiene && it.estado !== "aprobado" && <button className="u-mini" disabled={busy} style={{ color: "#177A3B", borderColor: "rgba(23,122,59,.4)", fontWeight: 700 }} onClick={() => decidir(it.id, "aprobar")}>Aprobar</button>}
+          {esAdmin && tiene && it.estado !== "aprobado" && <button className="u-mini" disabled={busy} style={{ color: "var(--exito)", borderColor: "rgba(23,122,59,.4)", fontWeight: 700 }} onClick={() => decidir(it.id, "aprobar")}>Aprobar</button>}
           {esAdmin && tiene && it.estado !== "rechazado" && <button className="u-mini dan" disabled={busy} onClick={() => { setNotaVal(""); setRechazo({ id: it.id, label: it.label }); }}>Rechazar</button>}
         </div>
       </div>
@@ -161,7 +161,7 @@ function Documentos() {
             {sub && <div style={{ fontSize: 13, color: "var(--gris)", marginTop: 2 }}>{sub}</div>}
           </div>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-            <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: full ? "rgba(27,122,61,.15)" : "rgba(241,139,17,0.14)", color: full ? "#177A3B" : "var(--naranja-osc)" }}>{ap}/{lista.length}</span>
+            <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: full ? "rgba(27,122,61,.15)" : "rgba(241,139,17,0.14)", color: full ? "var(--exito)" : "var(--naranja-osc)" }}>{ap}/{lista.length}</span>
             <span style={{ display: "inline-flex", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .2s", color: "var(--gris)" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
             </span>
@@ -172,7 +172,7 @@ function Documentos() {
     );
   }
 
-  const pillVerde = { display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, background: "rgba(27,122,61,.15)", color: "#177A3B", fontWeight: 800, fontSize: 13 };
+  const pillVerde = { display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, background: "rgba(27,122,61,.15)", color: "var(--exito)", fontWeight: 800, fontSize: 13 };
 
   return (
     <div>
@@ -196,12 +196,12 @@ function Documentos() {
       ) : vista === "grid" ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
           {(data.maestros || []).map((m) => (
-            <button key={m.id} className="u-card" onClick={() => setSel(m.id)} style={{ textAlign: "left", cursor: "pointer", padding: 16, font: "inherit", color: "inherit", display: "block", width: "100%" }}>
+            <button key={m.id} className="u-card cv-card" onClick={() => setSel(m.id)} style={{ textAlign: "left", cursor: "pointer", padding: 16, font: "inherit", color: "inherit", display: "block", width: "100%" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <DocAvatar nombre={m.nombre} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 750, color: "var(--negro)", fontSize: 15 }}>{m.nombre}</div>
-                  <div style={{ fontSize: 12.5, color: m.por_revisar > 0 ? "#1C5A96" : "var(--gris)", fontWeight: m.por_revisar > 0 ? 700 : 400 }}>{m.por_revisar > 0 ? `${m.por_revisar} por revisar` : "Sin pendientes"}</div>
+                  <div style={{ fontSize: 12.5, color: m.por_revisar > 0 ? "var(--info)" : "var(--gris)", fontWeight: m.por_revisar > 0 ? 700 : 400 }}>{m.por_revisar > 0 ? `${m.por_revisar} por revisar` : "Sin pendientes"}</div>
                 </div>
                 {m.listo_pago && <span style={pillVerde}><Ico n="check" size={13} /> Listo</span>}
               </div>

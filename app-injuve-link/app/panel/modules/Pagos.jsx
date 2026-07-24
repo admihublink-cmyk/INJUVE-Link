@@ -43,7 +43,7 @@ function Pagos() {
 
       {data && rows.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 14, marginBottom: 18 }}>
-          {[["Total del periodo", data.total, "var(--naranja-osc)"], ["Pagado", data.pagado, "#1B7A3D"], ["Pendiente", data.pendiente, "#B3261E"]].map(([t, v, c]) => (
+          {[["Total del periodo", data.total, "var(--naranja-osc)"], ["Pagado", data.pagado, "var(--exito)"], ["Pendiente", data.pendiente, "var(--alerta)"]].map(([t, v, c]) => (
             <div key={t} style={{ background: "#fff", border: "1px solid var(--borde)", borderRadius: 14, padding: "16px 18px", boxShadow: "var(--sombra)" }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: c, fontFamily: "var(--font-titulo),sans-serif" }}>{money(v)}</div>
               <div style={{ fontSize: 13, color: "var(--gris)", marginTop: 3 }}>{t}</div>
@@ -74,8 +74,8 @@ function Pagos() {
                     <td style={{ textAlign: "center" }}>{p.clases}</td>
                     <td style={{ textAlign: "center" }}>{p.horas} h</td>
                     <td style={{ fontWeight: 700 }}>{money(p.monto)}</td>
-                    <td>{(() => { const d = p.docs; const s = !d ? ["—", "rgba(110,98,88,.12)", "#8A8178"] : d.listo_pago ? ["Listo para pago", "rgba(27,122,61,.15)", "#177A3B"] : d.factura_subida ? ["Factura en revisión", "rgba(45,125,210,.15)", "#1C5A96"] : d.prereqs_ok ? ["Falta factura", "var(--naranja-claro)", "var(--naranja-osc)"] : [`${d.aprobados}/${d.total} docs`, "rgba(110,98,88,.12)", "#6E6258"]; return <span className="u-badge" style={{ background: s[1], color: s[2] }}>{s[0]}</span>; })()}</td>
-                    <td><span className="u-badge" style={p.estado === "pagado" ? { background: "#E7F5EC", color: "#1B7A3D" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{p.estado}</span></td>
+                    <td>{(() => { const d = p.docs; const s = !d ? ["—", "rgba(110,98,88,.12)", "var(--gris-2)"] : d.listo_pago ? ["Listo para pago", "rgba(27,122,61,.15)", "var(--exito)"] : d.factura_subida ? ["Factura en revisión", "rgba(45,125,210,.15)", "var(--info)"] : d.prereqs_ok ? ["Falta factura", "var(--naranja-claro)", "var(--naranja-osc)"] : [`${d.aprobados}/${d.total} docs`, "rgba(110,98,88,.12)", "var(--gris)"]; return <span className="u-badge" style={{ background: s[1], color: s[2] }}>{s[0]}</span>; })()}</td>
+                    <td><span className="u-badge" style={p.estado === "pagado" ? { background: "var(--exito-bg)", color: "var(--exito)" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{p.estado}</span></td>
                     <td>
                       <div className="u-acts">
                         <button className="u-mini" onClick={() => setDetalle(p)}>Ver detalle</button>

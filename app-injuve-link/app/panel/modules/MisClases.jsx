@@ -103,7 +103,7 @@ function MisClases() {
                       <td><b>{s.grupo}</b> · N{s.nivel}</td>
                       <td>{s.duracion_horas} h</td>
                       <td>
-                        <span className="u-badge" style={s.estado === "impartida" ? { background: "#E7F5EC", color: "#1B7A3D" } : s.estado === "reprogramada" ? { background: "#E6EEF9", color: "#2D5FA6" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{s.estado}</span>
+                        <span className="u-badge" style={s.estado === "impartida" ? { background: "var(--exito-bg)", color: "var(--exito)" } : s.estado === "reprogramada" ? { background: "var(--info-bg)", color: "var(--info)" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{s.estado}</span>
                       </td>
                       <td>
                         <div className="u-acts">

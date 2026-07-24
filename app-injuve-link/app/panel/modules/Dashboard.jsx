@@ -32,7 +32,7 @@ function Dashboard({ u }) {
           </div>
         ))}
       </div>
-      {err && <p style={{ marginTop: 16, fontSize: 13, color: "#B3261E" }}>No se pudieron cargar las métricas.</p>}
+      {err && <p style={{ marginTop: 16, fontSize: 13, color: "var(--alerta)" }}>No se pudieron cargar las métricas.</p>}
 
       {driveMsg && (
         <div className={driveMsg === "ok" ? "aca-ok" : "u-err"} style={{ marginTop: 16 }}>
@@ -42,7 +42,7 @@ function Dashboard({ u }) {
 
       {d && d.puede_drive && (
         <div className="u-glass" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap", padding: "13px 16px", borderRadius: 14 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 11, background: d.drive_conectado ? "#E7F5EC" : "var(--naranja-claro)", color: d.drive_conectado ? "#1B7A3D" : "var(--naranja-osc)", flexShrink: 0 }}><Ico n={d.drive_conectado ? "check" : "download"} size={20} /></span>
+          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, borderRadius: 11, background: d.drive_conectado ? "var(--exito-bg)" : "var(--naranja-claro)", color: d.drive_conectado ? "var(--exito)" : "var(--naranja-osc)", flexShrink: 0 }}><Ico n={d.drive_conectado ? "check" : "download"} size={20} /></span>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontWeight: 800, color: "var(--negro)", fontSize: 14.5 }}>Google Drive{d.drive_conectado ? " · conectado" : ""}</div>
             <div style={{ fontSize: 13, color: "var(--gris)" }}>

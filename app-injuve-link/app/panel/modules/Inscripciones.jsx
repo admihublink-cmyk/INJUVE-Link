@@ -98,7 +98,7 @@ function Inscripciones() {
                       ) : al.grupo ? <span className="u-rol">{al.grupo}</span> : <span className="u-badge off">Sin grupo</span>}
                     </td>
                     <td>
-                      <span className="u-badge" style={al.estado === "asignada" ? { background: "#E7F5EC", color: "#1B7A3D" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{al.estado || "—"}</span>
+                      <span className="u-badge" style={al.estado === "asignada" ? { background: "var(--exito-bg)", color: "var(--exito)" } : { background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>{al.estado || "—"}</span>
                     </td>
                     <td>
                       <div className="u-acts">

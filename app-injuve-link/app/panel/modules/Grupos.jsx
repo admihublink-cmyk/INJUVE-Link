@@ -65,7 +65,7 @@ function Grupos() {
                   <tr key={g.id} style={{ opacity: g.activo ? 1 : 0.55 }}>
                     <td style={{ fontWeight: 700 }}>{g.codigo}</td>
                     <td><span className="u-rol">{g.nivel || "—"}</span></td>
-                    <td>{g.maestro || "—"}{g.maestro_id && <span title="Cuenta de maestro vinculada" style={{ color: "#1B7A3D", marginLeft: 5 }}>●</span>}</td>
+                    <td>{g.maestro || "—"}{g.maestro_id && <span title="Cuenta de maestro vinculada" style={{ color: "var(--exito)", marginLeft: 5 }}>●</span>}</td>
                     <td style={{ color: "var(--gris)", fontSize: 13 }}>
                       {fmtDias(g.dias) && <div style={{ color: "var(--texto)", fontWeight: 600 }}>{fmtDias(g.dias)}</div>}
                       <div>{g.horario || "—"}</div>
