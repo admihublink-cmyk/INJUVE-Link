@@ -88,32 +88,37 @@ export async function POST(req) {
   const { anio, mes, fin } = rango;
 
   const { data: grupos } = await sb.from("groups")
-    .select("id, maestro_id, dias, hora_inicio, duracion_horas, liga_meet")
+    .select("id, maestro_id, liga_meet")
     .eq("activo", true)
-    .not("dias", "is", null)
     .not("maestro_id", "is", null);
 
+  const { data: slots } = await sb.from("grupo_horario").select("group_id, dia, hora_inicio, duracion_horas");
+  const slotsByGroup = {};
+  (slots || []).forEach((s) => { (slotsByGroup[s.group_id] = slotsByGroup[s.group_id] || []).push(s); });
+
   const { data: existentes } = await sb.from("sesiones_clase")
-    .select("group_id, fecha")
+    .select("group_id, fecha, hora")
     .gte("fecha", fmt(rango.inicio)).lte("fecha", fmt(rango.fin));
-  const yaSet = new Set((existentes || []).map((s) => s.group_id + "|" + s.fecha));
+  const yaSet = new Set((existentes || []).map((s) => s.group_id + "|" + s.fecha + "|" + String(s.hora || "").slice(0, 5)));
 
   const nuevos = [];
   for (const g of (grupos || [])) {
-    if (!g.duracion_horas) continue;
-    const dias = String(g.dias).split(",").map((x) => x.trim()).filter(Boolean);
-    if (!dias.length) continue;
+    const gs = slotsByGroup[g.id];
+    if (!gs || !gs.length) continue;
     for (let d = 1; d <= fin.getUTCDate(); d++) {
       const fecha = new Date(Date.UTC(anio, mes - 1, d));
       const iso = fecha.getUTCDay() === 0 ? 7 : fecha.getUTCDay();
-      if (!dias.includes(String(iso))) continue;
       const fstr = fmt(fecha);
-      if (yaSet.has(g.id + "|" + fstr)) continue;
-      nuevos.push({
-        group_id: g.id, maestro_id: g.maestro_id, fecha: fstr,
-        hora: g.hora_inicio, duracion_horas: g.duracion_horas,
-        estado: "programada", link_meet: g.liga_meet || null,
-      });
+      for (const s of gs) {
+        if (s.dia !== iso) continue;
+        const horaKey = String(s.hora_inicio || "").slice(0, 5);
+        if (yaSet.has(g.id + "|" + fstr + "|" + horaKey)) continue;
+        nuevos.push({
+          group_id: g.id, maestro_id: g.maestro_id, fecha: fstr,
+          hora: s.hora_inicio, duracion_horas: s.duracion_horas,
+          estado: "programada", link_meet: g.liga_meet || null,
+        });
+      }
     }
   }
 
