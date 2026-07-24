@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { COOKIE_AL, firmarSesion, supa } from "../../../lib/alumno";
 
-const CLAVE_RE = /^INJL-\d{2}-\d{4}$/;
+const correoOk = (c) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c);
 
+// Login del alumno v2: correo + contraseña (la matrícula/folio ya no se usa para entrar).
 export async function POST(req) {
   let b;
   try {
@@ -11,14 +12,14 @@ export async function POST(req) {
     return NextResponse.json({ error: "Solicitud no válida." }, { status: 400 });
   }
 
-  const clave = String(b.clave || "").toUpperCase().trim();
-  const whatsapp = String(b.whatsapp || "").replace(/\D/g, "");
+  const correo = String(b.correo || "").trim().toLowerCase();
+  const password = String(b.password || "");
 
-  if (!CLAVE_RE.test(clave)) {
-    return NextResponse.json({ error: "Clave de alumno no válida (ejemplo: INJL-26-0123)." }, { status: 400 });
+  if (!correoOk(correo)) {
+    return NextResponse.json({ error: "Escribe un correo válido." }, { status: 400 });
   }
-  if (!/^\d{10}$/.test(whatsapp)) {
-    return NextResponse.json({ error: "WhatsApp no válido (10 dígitos)." }, { status: 400 });
+  if (!password) {
+    return NextResponse.json({ error: "Escribe tu contraseña." }, { status: 400 });
   }
 
   let sb;
@@ -31,33 +32,28 @@ export async function POST(req) {
     );
   }
 
-  const { data, error } = await sb
-    .from("enrollments")
-    .select("id, activo, estado")
-    .eq("folio", clave)
-    .eq("whatsapp", whatsapp)
-    .neq("estado", "baja")
-    .maybeSingle();
-
+  const { data, error } = await sb.rpc("alumno_login", { p_correo: correo, p_password: password });
   if (error) {
     console.error("alumno login:", error);
     return NextResponse.json({ error: "No pudimos validar tu acceso. Intenta de nuevo en un momento." }, { status: 500 });
   }
-  if (!data) {
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
     return NextResponse.json(
-      { error: "No encontramos una inscripción con esa clave y WhatsApp. Revisa que sean los mismos de tu inscripción." },
+      { error: "Correo o contraseña incorrectos. Si es tu primer acceso, usa la contraseña que te enviamos." },
       { status: 401 }
     );
   }
-  if (!data.activo) {
+  if (!row.activo) {
     return NextResponse.json(
       { error: "Tu acceso todavía no está activo. Te avisaremos por WhatsApp en cuanto tu grupo esté listo." },
       { status: 403 }
     );
   }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE_AL, firmarSesion(data.id), {
+  const res = NextResponse.json({ ok: true, cambiar_password: !row.password_cambiada });
+  res.cookies.set(COOKIE_AL, firmarSesion(row.id), {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
