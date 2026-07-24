@@ -217,6 +217,131 @@ function Cotejo() {
           </p>
         </div>
       )}
+
+      <Reinscripciones />
+    </div>
+  );
+}
+
+// Buzón de reinscripciones: alumnos returning con su monto calculado + descarga del lote Banorte.
+function Reinscripciones() {
+  const [abierto, setAbierto] = useState(false);
+  const [d, setD] = useState(null);
+  const [periodo, setPeriodo] = useState("SEP-2026");
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+  const [gen, setGen] = useState(false);
+
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const r = await fetch("/api/panel/reinscripciones?periodo=" + encodeURIComponent(periodo));
+      const x = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(x.error || "No se pudo cargar el buzón.");
+      setD(x);
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  useEffect(() => { if (abierto) cargar(); /* eslint-disable-next-line */ }, [abierto, periodo]);
+
+  async function generarLote() {
+    setGen(true); setError("");
+    try {
+      const r = await fetch("/api/panel/reinscripciones", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodo }),
+      });
+      const x = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(x.error || "No se pudo generar el lote.");
+      const blob = new Blob(["﻿" + x.csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = x.nombre || "LOTE_REINSCRIPCION.csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      cargar();
+    } catch (e) { setError(e.message); }
+    setGen(false);
+  }
+
+  const rows = d?.rows || [];
+  const R = d?.resumen;
+  const money = (n) => "$" + (Number(n) || 0).toLocaleString("es-MX");
+
+  return (
+    <div className="u-card" style={{ marginTop: 16, overflow: "hidden" }}>
+      <button onClick={() => setAbierto((v) => !v)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "13px 18px", background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 700, fontSize: 14.5, color: "var(--negro)" }}>
+          <Ico n="pagos" size={17} /> Reinscripciones y ligas de pago
+          {R && <span className="u-badge on" style={{ marginLeft: 4 }}>{R.total} returning</span>}
+        </span>
+        <span style={{ display: "inline-flex", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .2s", color: "var(--gris)" }}>
+          <Ico n="chevron" size={16} />
+        </span>
+      </button>
+
+      {abierto && (
+        <div style={{ padding: "0 18px 18px" }}>
+          <p style={{ fontSize: 12.5, color: "var(--gris)", marginBottom: 12, maxWidth: "74ch" }}>
+            Alumnos que regresan (con historial de pago). El monto se calcula solo con la regla Burlington: si su material sigue
+            vigente pagan solo inscripción, si no, completo. Descarga el lote en formato Banorte (Email, Monto, Referencia, Referencia2).
+          </p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--gris)" }}>
+              Periodo:
+              <input className="u-inp" style={{ marginTop: 0, width: 120 }} value={periodo}
+                onChange={(e) => setPeriodo(e.target.value.toUpperCase())} />
+            </label>
+            <button className="u-btn" onClick={generarLote} disabled={gen || !rows.length}>
+              <Ico n="download" size={15} /> {gen ? "Generando…" : "Generar lote Banorte (CSV)"}
+            </button>
+          </div>
+
+          {error && <div className="u-err" style={{ marginBottom: 12 }}>{error}</div>}
+
+          {R && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+              <Chip n={R.total} t="Returning" />
+              <Chip n={R.generadas} t="Con liga" c="var(--exito)" />
+              <div style={{ padding: "8px 14px", borderRadius: 12, background: "rgba(255,255,255,0.55)", border: "1px solid var(--borde)" }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "var(--naranja-osc)", lineHeight: 1.1 }}>{money(R.monto_total)}</div>
+                <div style={{ fontSize: 12, color: "var(--gris)" }}>Monto del lote</div>
+              </div>
+            </div>
+          )}
+
+          {cargando ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
+          ) : !rows.length ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--gris)" }}>Aún no hay alumnos con historial. Carga un cotejo pasado en modo historial.</div>
+          ) : (
+            <div className="u-card" style={{ maxHeight: 380, overflow: "auto" }}>
+              <div className="u-tablewrap">
+                <table className="u-table">
+                  <thead>
+                    <tr><th>Alumno</th><th>Categoría</th><th>Material</th><th>Monto</th><th>Referencia</th><th>Estado</th></tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.enrollment_id}>
+                        <td style={{ fontWeight: 600 }}>{r.nombre}<div style={{ fontSize: 12, color: "var(--gris)", fontWeight: 400 }}>{r.correo}</div></td>
+                        <td><span className="u-rol">{r.categoria}</span></td>
+                        <td>{r.burlington
+                          ? <span className="u-badge" style={{ background: "var(--exito-bg)", color: "var(--exito)" }}>Vigente</span>
+                          : <span className="u-badge" style={{ background: "var(--naranja-claro)", color: "var(--naranja-osc)" }}>Renueva</span>}</td>
+                        <td style={{ fontWeight: 700 }}>{money(r.monto)}</td>
+                        <td style={{ color: "var(--gris)", fontSize: 12.5 }}>{r.referencia || "—"}</td>
+                        <td><span className={"u-badge " + (r.estado === "liga_generada" || r.estado === "pagada" ? "on" : "off")}>{r.estado}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
