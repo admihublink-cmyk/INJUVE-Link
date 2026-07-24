@@ -64,11 +64,11 @@ export async function POST(req) {
     const filas = b.niveles
       .filter((n) => String(n.nivel || "").trim())
       .map((n, i) => ({ desde: Number(n.desde) || 0, nivel: String(n.nivel).trim(), orden: i }));
+    // No permitir borrar TODAS las bandas: dejaría el examen sin criterio de nivel.
+    if (!filas.length) return NextResponse.json({ error: "Debe quedar al menos una banda de nivel." }, { status: 400 });
     await sb.from("examen_niveles").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    if (filas.length) {
-      const { error } = await sb.from("examen_niveles").insert(filas);
-      if (error) return NextResponse.json({ error: "No se pudieron guardar los niveles." }, { status: 400 });
-    }
+    const { error } = await sb.from("examen_niveles").insert(filas);
+    if (error) return NextResponse.json({ error: "No se pudieron guardar los niveles." }, { status: 400 });
     return NextResponse.json({ ok: true });
   }
 
