@@ -18,6 +18,8 @@ function Cotejo() {
   const [cargando, setCargando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [hecho, setHecho] = useState(null);
+  const [generacion, setGeneracion] = useState("6ª");
+  const [generando, setGenerando] = useState(false);
   const inputRef = useRef(null);
 
   async function cargar() {
@@ -55,6 +57,29 @@ function Cotejo() {
       setPrev(d);
     } catch (e) { setError(e.message); }
     setCargando(false);
+  }
+
+  async function descargarCotejo() {
+    if (!archivo) return;
+    setGenerando(true); setError("");
+    try {
+      const r = await fetch("/api/panel/cotejo", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "cotejo_final", periodo, generacion, archivo_base64: archivo.base64 }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo generar el cotejo.");
+      const bin = atob(d.archivo_base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = d.nombre || "COTEJO.xlsx";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) { setError(e.message); }
+    setGenerando(false);
   }
 
   async function confirmar() {
@@ -122,8 +147,21 @@ function Cotejo() {
             <button className="u-btn" onClick={previsualizar} disabled={cargando}>
               {cargando ? "Analizando…" : "Analizar (pre-cotejo)"}
             </button>
+            <span style={{ width: 1, height: 24, background: "var(--borde)" }} />
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--gris)" }}>
+              Generación:
+              <input className="u-inp" style={{ marginTop: 0, width: 60 }} value={generacion}
+                onChange={(e) => setGeneracion(e.target.value)} />
+            </label>
+            <button className="u-btn sec" onClick={descargarCotejo} disabled={generando}>
+              <Ico n="download" size={15} /> {generando ? "Generando…" : "Descargar cotejo final"}
+            </button>
           </div>
         )}
+        <p style={{ fontSize: 12, color: "var(--gris)", marginTop: 10 }}>
+          "Analizar" activa el acceso de los que pagaron. "Descargar cotejo final" baja el .xlsx con las 7 hojas
+          (FICHA, JOVEN, PLUS, BURLINGTON, INJUVE, PAGO A MAESTROS, Transacciones) para que lo revises o edites.
+        </p>
       </div>
 
       {/* Paso 2: previsualización */}
