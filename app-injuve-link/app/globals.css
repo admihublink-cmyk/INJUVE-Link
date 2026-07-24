@@ -14,6 +14,15 @@
   --gris: #6E6258;
   --blanco: #FFFFFF;
   --borde: rgba(43, 33, 24, 0.10);
+  /* Semánticos de estado (éxito / alerta / info) + gris secundario. Unifican literales dispersos. */
+  --exito: #1B7A3D;
+  --exito-bg: #E7F5EC;
+  --alerta: #B3261E;
+  --alerta-osc: #8f1e18;
+  --alerta-bg: #FDECEC;
+  --info: #1C5A96;
+  --info-bg: #E6EEF9;
+  --gris-2: #8A8178;
   --r-sm: 12px;
   --r-md: 18px;
   --r-lg: 26px;
