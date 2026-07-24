@@ -77,8 +77,17 @@ export async function GET(req) {
   const total = rows.reduce((s, r) => s + r.monto, 0);
   const pagado = rows.filter((r) => r.estado === "pagado").reduce((s, r) => s + r.monto, 0);
 
+  const MES_ABBR = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+  const { data: fechasSes } = await sb.from("sesiones_clase").select("fecha");
+  const mesesSet = new Set();
+  (fechasSes || []).forEach((r) => { if (r.fecha) { const p = String(r.fecha).split("-"); mesesSet.add(`${MES_ABBR[parseInt(p[1], 10) - 1]}-${p[0]}`); } });
   const { data: gper } = await sb.from("groups").select("periodo");
-  const periodos = Array.from(new Set([...(gper || []).map((p) => p.periodo).filter(Boolean), periodo]));
+  (gper || []).forEach((p) => { if (p.periodo) mesesSet.add(p.periodo); });
+  mesesSet.add(periodo);
+  const periodos = Array.from(mesesSet).sort((a, b) => {
+    const pa = String(a).split("-"), pb = String(b).split("-");
+    return (Number(pa[1]) - Number(pb[1])) || (MES_ABBR.indexOf(pa[0]) - MES_ABBR.indexOf(pb[0]));
+  });
 
   return NextResponse.json({
     rows, periodo, periodos,
