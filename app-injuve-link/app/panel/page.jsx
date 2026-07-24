@@ -20,6 +20,7 @@ const MODULOS = [
   { id: "misclases", perm: "SESION_VER", nombre: "Mis clases", icon: "🧑‍🏫", desc: "Toma asistencia y entra al Meet de tus clases." },
   { id: "inscripciones", perm: "INSC_VER", nombre: "Inscripciones", icon: "📝", desc: "Altas, estados y asignación de grupo." },
   { id: "cotejo", perm: "INSC_CREAR", nombre: "Cotejo y pagos", icon: "🧾", desc: "Cruza transacciones, activa pagados y descarga el cotejo." },
+  { id: "examen", perm: "INSC_VER", nombre: "Examen de ubicación", icon: "🧠", desc: "Edita preguntas y criterio de nivel; resultados de aspirantes." },
   { id: "grupos", perm: "GRUPO_VER", nombre: "Grupos", icon: "👥", desc: "Cohortes, maestro, horario y Google Meet." },
   { id: "maestros", perm: "MAESTRO_VER", nombre: "Maestros", icon: "🎓", desc: "Perfiles, cotización y documentos." },
   { id: "programa", perm: "PROGRAMA_VER", nombre: "Programa y clases", icon: "📚", desc: "Módulos, calendario y sesiones." },
@@ -41,6 +42,7 @@ function Cargando() {
 const Dashboard = dynamic(() => import("./modules/Dashboard"), { ssr: false, loading: Cargando });
 const Inscripciones = dynamic(() => import("./modules/Inscripciones"), { ssr: false, loading: Cargando });
 const Cotejo = dynamic(() => import("./modules/Cotejo"), { ssr: false, loading: Cargando });
+const Examen = dynamic(() => import("./modules/Examen"), { ssr: false, loading: Cargando });
 const Grupos = dynamic(() => import("./modules/Grupos"), { ssr: false, loading: Cargando });
 const Maestros = dynamic(() => import("./modules/Maestros"), { ssr: false, loading: Cargando });
 const Pagos = dynamic(() => import("./modules/Pagos"), { ssr: false, loading: Cargando });
@@ -424,6 +426,7 @@ function Shell({ sesion, onSalir }) {
               : modActiva?.id === "usuarios" ? <Usuarios />
               : modActiva?.id === "inscripciones" ? <Inscripciones />
               : modActiva?.id === "cotejo" ? <Cotejo />
+              : modActiva?.id === "examen" ? <Examen />
               : modActiva?.id === "grupos" ? <Grupos />
               : modActiva?.id === "maestros" ? <Maestros />
               : modActiva?.id === "pagos" ? <Pagos />

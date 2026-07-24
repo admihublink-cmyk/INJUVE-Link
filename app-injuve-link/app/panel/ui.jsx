@@ -42,6 +42,7 @@ const ICONS = {
   upload: (<><path d="M12 20V9" /><path d="M8 12.5l4-4 4 4" /><path d="M5 4.5h14" /></>),
   dot: (<><circle cx="12" cy="12" r="3" /></>),
   cotejo: (<><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z" /><path d="M13.5 3.5v4.5h4.5" /><path d="M8.3 13l1.6 1.6 3.2-3.4" /><path d="M8.5 17.5h6" /></>),
+  examen: (<><rect x="5" y="3.5" width="14" height="17" rx="2" /><path d="M9 3.5V6h6V3.5" /><path d="M8.4 11.2l1.3 1.3 2.5-2.7" /><path d="M14.5 11.2h2.4" /><path d="M8.4 15.6h8" /></>),
 };
 
 function Ico({ n, size = 20, className }) {
