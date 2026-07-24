@@ -6,7 +6,10 @@ export { supa } from "./admin";
 export const COOKIE_AL = "injuve_alumno";
 
 function secreto() {
-  return process.env.ADMIN_SECRET || process.env.ADMIN_PASSWORD || "injuve-link-sesion";
+  // Falla cerrado: sin secreto configurado, no usamos un valor por defecto público.
+  const s = process.env.ADMIN_SECRET || process.env.ADMIN_PASSWORD;
+  if (!s) throw new Error("Falta el secreto de sesión (define ADMIN_SECRET).");
+  return s;
 }
 
 export function firmarSesion(id) {

@@ -12,7 +12,11 @@ export function supa() {
 }
 
 function secreto() {
-  return process.env.AUTH_SECRET || process.env.ADMIN_SECRET || process.env.ADMIN_PASSWORD || "injuve-link-panel";
+  // Falla cerrado: si no hay secreto configurado NO usamos un valor por defecto público
+  // (permitiría falsificar cookies). Mismo orden de resolución de siempre.
+  const s = process.env.AUTH_SECRET || process.env.ADMIN_SECRET || process.env.ADMIN_PASSWORD;
+  if (!s) throw new Error("Falta el secreto de sesión (define AUTH_SECRET o ADMIN_SECRET).");
+  return s;
 }
 
 // La cookie guarda el id del usuario y su rol, firmados con HMAC.
