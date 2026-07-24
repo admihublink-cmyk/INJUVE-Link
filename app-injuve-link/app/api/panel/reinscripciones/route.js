@@ -56,15 +56,24 @@ export async function POST(req) {
   if (error) return NextResponse.json({ error: "No se pudo cargar la lista." }, { status: 500 });
   let lista = (data || []);
   if (ids && ids.length) lista = lista.filter((r) => ids.includes(r.enrollment_id));
-  if (!lista.length) return NextResponse.json({ error: "No hay alumnos para generar el lote." }, { status: 400 });
+  // Solo se genera liga para quienes AÚN no la tienen: nunca re-numeramos a quien ya tiene
+  // liga o pagó (eso rompería la conciliación con Banorte y perdería el pago registrado).
+  lista = lista.filter((r) => r.estado !== "liga_generada" && r.estado !== "pagada");
+  if (!lista.length) return NextResponse.json({ error: "No hay alumnos pendientes de liga. Los seleccionados ya tienen su liga generada o pagada." }, { status: 400 });
 
-  // Base de numeración: 2001 + ligas ya generadas del periodo (evita referencias repetidas entre lotes).
-  const { count: yaCount } = await sb
+  // Base de numeración = mayor sufijo numérico ya usado en el periodo + 1 (arranca en 2001).
+  // Usar el máximo (no el conteo) evita colisiones al generar en varios lotes.
+  const { data: existentes } = await sb
     .from("reinscripciones")
-    .select("*", { count: "exact", head: true })
+    .select("referencia")
     .eq("periodo", periodo)
     .not("referencia", "is", null);
-  const base = 2001 + (yaCount || 0);
+  let maxSeq = 2000;
+  (existentes || []).forEach((x) => {
+    const m = String(x.referencia || "").match(/(\d+)\s*$/);
+    if (m) { const n = parseInt(m[1], 10); if (!isNaN(n) && n > maxSeq) maxSeq = n; }
+  });
+  const base = maxSeq + 1;
 
   const filas = [];
   const csv = ["Email,Monto,Referencia,Referencia2"];
