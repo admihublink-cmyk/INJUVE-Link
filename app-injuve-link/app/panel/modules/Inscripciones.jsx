@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { Ico, PageHead, Sel } from "../ui";
 
+const GENERICA = "InjuveLink2026";
+
 function Inscripciones() {
   const [data, setData] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -11,6 +13,7 @@ function Inscripciones() {
   const [filtro, setFiltro] = useState("todos");
   const [pagina, setPagina] = useState(1);
   const [modal, setModal] = useState(null);
+  const [acceso, setAcceso] = useState(null);
   const [guardandoId, setGuardandoId] = useState(null);
 
   async function cargar() {
@@ -102,6 +105,7 @@ function Inscripciones() {
                     </td>
                     <td>
                       <div className="u-acts">
+                        <button className="u-mini" onClick={() => setAcceso(al)}><Ico n="usuarios" size={14} /> Acceso</button>
                         {puedeEditar && <button className="u-mini" onClick={() => setModal(al)}>Editar</button>}
                       </div>
                     </td>
@@ -131,6 +135,15 @@ function Inscripciones() {
           puedeEstado={data?.puede_estado}
           onClose={() => setModal(null)}
           onDone={() => { setModal(null); cargar(); }}
+        />
+      )}
+
+      {acceso && (
+        <AccesoModal
+          alumno={acceso}
+          puedeEditar={puedeEditar}
+          onClose={() => setAcceso(null)}
+          onDone={() => { setAcceso(null); cargar(); }}
         />
       )}
     </div>
@@ -205,5 +218,80 @@ function InscripcionModal({ alumno, grupos, puedeAsignar, puedeEstado, onClose, 
   );
 }
 
+// Tarjeta de acceso: usuario (correo) + estado de la contraseña + restablecer a la genérica.
+// La contraseña que el alumno eligió NO se puede ver (va cifrada); solo se restablece.
+function AccesoModal({ alumno, puedeEditar, onClose, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
+  const [confirmar, setConfirmar] = useState(false);
+  const generica = alumno.password_cambiada === false;
+
+  async function restablecer() {
+    setBusy(true); setError("");
+    try {
+      const r = await fetch("/api/panel/inscripciones", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: alumno.id, reset_password: true }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo restablecer.");
+      setOk("Contraseña restablecida a la genérica. El alumno la usará para entrar y la cambiará en su primer acceso.");
+      setConfirmar(false);
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  }
+
+  const Fila = ({ dt, children }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "11px 0", borderBottom: "1px solid var(--borde)" }}>
+      <span style={{ color: "var(--gris)", fontSize: 13.5 }}>{dt}</span>
+      <span style={{ fontWeight: 600, textAlign: "right", wordBreak: "break-word" }}>{children}</span>
+    </div>
+  );
+
+  return (
+    <div className="u-modal-bg" onClick={onClose}>
+      <div className="u-modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+        <h3>Acceso al portal</h3>
+        <p style={{ color: "var(--gris)", fontSize: 13, marginTop: 2 }}>{alumno.nombre}</p>
+
+        <div style={{ marginTop: 12 }}>
+          <Fila dt="Usuario (correo)">{alumno.correo || "—"}</Fila>
+          <Fila dt="Contraseña">
+            {generica ? (
+              <span style={{ background: "var(--exito-bg)", color: "var(--exito)", padding: "3px 11px", borderRadius: 999, fontSize: 13 }}>Genérica: {GENERICA}</span>
+            ) : (
+              <span style={{ background: "rgba(110,98,88,.14)", color: "var(--gris-2)", padding: "3px 11px", borderRadius: 999, fontSize: 13 }}>Personalizada</span>
+            )}
+          </Fila>
+        </div>
+
+        <p style={{ fontSize: 12.5, color: "var(--gris)", marginTop: 10, lineHeight: 1.5 }}>
+          {generica
+            ? "El alumno aún no cambia su contraseña: entra con la genérica y la personaliza en su primer acceso."
+            : "El alumno ya eligió su propia contraseña. Por seguridad no se puede ver; si la perdió, restablécela a la genérica."}
+        </p>
+
+        {ok && <div className="aca-ok" style={{ marginTop: 12 }}>{ok}</div>}
+        {error && <div className="u-err">{error}</div>}
+
+        <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+          {puedeEditar && !ok && (
+            confirmar ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginRight: "auto" }}>
+                <span style={{ fontSize: 13 }}>¿Restablecer a <b>{GENERICA}</b>?</span>
+                <button className="u-mini dan" onClick={restablecer} disabled={busy}>{busy ? "…" : "Sí, restablecer"}</button>
+                <button className="u-mini" onClick={() => setConfirmar(false)}>No</button>
+              </div>
+            ) : (
+              <button className="u-btn sec" style={{ marginRight: "auto" }} onClick={() => setConfirmar(true)}>Restablecer contraseña</button>
+            )
+          )}
+          <button className="u-btn" onClick={ok ? onDone : onClose}>{ok ? "Listo" : "Cerrar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default Inscripciones;
