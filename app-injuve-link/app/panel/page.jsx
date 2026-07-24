@@ -30,6 +30,7 @@ const MODULOS = [
   { id: "maestros", perm: "MAESTRO_VER", nombre: "Maestros", icon: "🎓", desc: "Perfiles, cotización y documentos." },
   { id: "programa", perm: "PROGRAMA_VER", nombre: "Programa y clases", icon: "📚", desc: "Módulos, calendario y sesiones." },
   { id: "academico", perm: "CALIF_VER", nombre: "Asistencia y calificaciones", icon: "✅", desc: "Registro por sesión y módulo." },
+  { id: "documentos", perm: "EVIDENCIA_SUBIR", nombre: "Documentos", icon: "📄", desc: "Formatos que se guardan en Google Drive." },
   { id: "pagos", perm: "PAGOM_VER", nombre: "Pago a maestros", icon: "💵", desc: "Evidencias, documentos y pagos." },
   { id: "atencion", perm: "CASO_VER", nombre: "Atención a becarios", icon: "🎧", desc: "Buzón de casos con semáforo." },
   { id: "solicitudes", perm: "SOLIC_ATENDER", nombre: "Solicitudes", icon: "📨", desc: "Ligas de pago y Burlington." },
@@ -65,6 +66,8 @@ const ICONS = {
   check: (<><path d="M5 12.5l4.5 4.5L19 7" /></>),
   calendar: (<><rect x="3.5" y="5" width="17" height="15.5" rx="2.4" /><path d="M3.5 10h17" /><path d="M8 3.2v3.6M16 3.2v3.6" /></>),
   plus: (<><path d="M12 5v14M5 12h14" /></>),
+  documentos: (<><path d="M6 3h7l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M13 3v5h5" /><path d="M8.5 13h7M8.5 16.5h7M8.5 9.5h2.5" /></>),
+  upload: (<><path d="M12 20V9" /><path d="M8 12.5l4-4 4 4" /><path d="M5 4.5h14" /></>),
   dot: (<><circle cx="12" cy="12" r="3" /></>),
 };
 
@@ -494,6 +497,7 @@ function Shell({ sesion, onSalir }) {
               : modActiva?.id === "pagos" ? <Pagos />
               : modActiva?.id === "programa" ? <Programa />
               : modActiva?.id === "academico" ? <Academico />
+              : modActiva?.id === "documentos" ? <Documentos />
               : <Modulo mod={modActiva} />}
           </div>
         </main>
@@ -2094,6 +2098,122 @@ function Academico() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function Documentos() {
+  const [data, setData] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
+  const [periodo, setPeriodo] = useState("JUL-2026");
+  const [maestroId, setMaestroId] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
+  const [borrando, setBorrando] = useState(null);
+  const fileRef = useRef(null);
+
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const r = await fetch("/api/panel/documentos");
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudieron cargar los documentos.");
+      setData(d);
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  useEffect(() => { cargar(); }, []);
+
+  const rows = data?.rows || [];
+  const esAdmin = data?.es_admin;
+  const maestros = data?.maestros || [];
+  const periodos = data?.periodos && data.periodos.length ? data.periodos : ["JUL-2026"];
+  const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const fFecha = (f) => { if (!f) return "—"; const dt = new Date(f); return `${dt.getDate()} ${MES[dt.getMonth()]} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`; };
+
+  async function alSubir(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 3.4 * 1024 * 1024) { setError("El archivo es muy grande (máx. ~3 MB)."); return; }
+    setSubiendo(true); setError(""); setOk("");
+    try {
+      const dataB64 = await new Promise((res, rej) => {
+        const rd = new FileReader();
+        rd.onload = () => res(String(rd.result).split(",")[1] || "");
+        rd.onerror = () => rej(new Error("No se pudo leer el archivo."));
+        rd.readAsDataURL(file);
+      });
+      const body = { nombre: file.name, mime: file.type, data: dataB64, periodo };
+      if (esAdmin) body.maestro_id = maestroId || null;
+      const r = await fetch("/api/panel/documentos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo subir.");
+      setOk("Documento subido a tu Google Drive.");
+      cargar();
+    } catch (e) { setError(e.message); }
+    setSubiendo(false);
+  }
+
+  async function borrar(id) {
+    setBorrando(id); setError("");
+    try {
+      const r = await fetch("/api/panel/documentos", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo borrar.");
+      cargar();
+    } catch (e) { setError(e.message); }
+    setBorrando(null);
+  }
+
+  return (
+    <div>
+      <PageHead ico="documentos" title="Documentos"
+        sub={esAdmin ? "Formatos y documentos que suben los maestros. Se guardan en el Google Drive de la escuela." : "Sube tus formatos llenados (ficha de honorarios, requisición, cotización…). Se guardan en el Drive de la escuela."} />
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+        <Sel width={150} ariaLabel="Periodo" value={periodo} onChange={setPeriodo} options={periodos.map((p) => ({ value: p, label: p }))} />
+        {esAdmin && <Sel width={220} placeholder="Asignar a maestro (opcional)" value={maestroId} onChange={setMaestroId} options={[{ value: "", label: "Sin maestro" }, ...maestros.map((m) => ({ value: m.id, label: m.nombre }))]} />}
+        <input ref={fileRef} type="file" style={{ display: "none" }} onChange={alSubir} />
+        <button className="u-btn" onClick={() => fileRef.current && fileRef.current.click()} disabled={subiendo}><Ico n="upload" size={16} /> {subiendo ? "Subiendo…" : "Subir documento"}</button>
+      </div>
+
+      {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
+      {ok && <div className="aca-ok"><Ico n="check" size={16} /> {ok}</div>}
+
+      <div className="u-card">
+        {cargando ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Cargando…</div>
+        ) : !rows.length ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Aún no hay documentos. Sube el primero con “Subir documento”.</div>
+        ) : (
+          <div className="u-tablewrap">
+            <table className="u-table">
+              <thead>
+                <tr><th>Documento</th><th>Periodo</th>{esAdmin && <th>Maestro</th>}<th>Subido</th><th style={{ textAlign: "right" }}>Acciones</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((d) => (
+                  <tr key={d.id}>
+                    <td style={{ fontWeight: 600 }}>{d.nombre}</td>
+                    <td>{d.periodo ? <span className="u-rol">{d.periodo}</span> : <span style={{ color: "var(--gris)" }}>—</span>}</td>
+                    {esAdmin && <td style={{ color: "var(--gris)" }}>{d.maestro}</td>}
+                    <td style={{ color: "var(--gris)", fontSize: 13, whiteSpace: "nowrap" }}>{fFecha(d.created_at)}</td>
+                    <td>
+                      <div className="u-acts">
+                        {d.drive_link && <a className="u-mini" href={d.drive_link} target="_blank" rel="noopener noreferrer" style={{ color: "var(--naranja-osc)", fontWeight: 700 }}>Ver ↗</a>}
+                        <button className="u-mini dan" onClick={() => borrar(d.id)} disabled={borrando === d.id}>{borrando === d.id ? "…" : "Borrar"}</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
