@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 
 const ROL_NOMBRE = {
@@ -37,6 +37,128 @@ const MODULOS = [
   { id: "reportes_pago", perm: "REPORTE_PAGOS", nombre: "Reportes de pago", icon: "💳", desc: "Pagos a maestros." },
   { id: "usuarios", perm: "USUARIO_VER", nombre: "Usuarios y roles", icon: "🔑", desc: "Personal, maestros, agentes y permisos." },
 ];
+
+// —— Sistema de iconos (línea, un solo trazo, hereda el color) ——
+const ICONS = {
+  dashboard: (<><rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /></>),
+  misclases: (<><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M12 16v4" /><path d="M8 20h8" /><path d="M10.4 8.1l3.4 1.9-3.4 1.9z" /></>),
+  inscripciones: (<><circle cx="9" cy="8" r="3.2" /><path d="M3.8 19.4c0-3 2.3-5.2 5.2-5.2 1.2 0 2.3.35 3.2 1" /><path d="M18 7.5v5" /><path d="M15.5 10h5" /></>),
+  grupos: (<><circle cx="8.5" cy="9" r="3" /><path d="M2.8 19c0-3.1 2.5-5.3 5.7-5.3 1.4 0 2.6.4 3.6 1.1" /><path d="M15.6 6.4a3 3 0 0 1 .3 5.8" /><path d="M16.6 14c2.6.3 4.6 2.4 4.6 5" /></>),
+  maestros: (<><path d="M12 4L2.5 8.5 12 13l9.5-4.5L12 4z" /><path d="M6.5 10.6V15c0 1.6 2.5 2.8 5.5 2.8s5.5-1.2 5.5-2.8v-4.4" /><path d="M21.5 8.5V14" /></>),
+  programa: (<><path d="M12 6.6C10.4 5.2 8 4.7 4.2 5.2v12.6c3.8-.5 6.2 0 7.8 1.4" /><path d="M12 6.6c1.6-1.4 4-1.9 7.8-1.4v12.6c-3.8-.5-6.2 0-7.8 1.4" /><path d="M12 6.6v12.4" /></>),
+  academico: (<><rect x="5" y="4.5" width="14" height="16.5" rx="2.2" /><path d="M9 4.5V6a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4.5" /><path d="M8.6 13.2l2.2 2.2 4.6-4.6" /></>),
+  pagos: (<><rect x="2.5" y="6" width="19" height="12" rx="2.2" /><circle cx="12" cy="12" r="2.7" /><path d="M6 9.5v5M18 9.5v5" /></>),
+  atencion: (<><path d="M4 13.5v-2a8 8 0 0 1 16 0v2" /><rect x="2.5" y="13" width="4" height="6.2" rx="1.6" /><rect x="17.5" y="13" width="4" height="6.2" rx="1.6" /><path d="M20 19.2c0 1.9-1.8 2.8-4 2.8" /></>),
+  solicitudes: (<><path d="M3 13l2.4-6.6A2 2 0 0 1 7.3 5h9.4a2 2 0 0 1 1.9 1.4L21 13" /><path d="M3 13h5l1.4 2.2h5.2L16 13h5v4.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></>),
+  legal: (<><path d="M12 3.5v17" /><path d="M7 20.5h10" /><path d="M4.8 7h14.4" /><path d="M8.5 4.6L5 7 2.7 12a2.8 2.8 0 0 0 5.6 0L5 7" /><path d="M19 7l-2.3 5a2.8 2.8 0 0 0 5.6 0L19 7" /></>),
+  reportes: (<><path d="M4 4v15.5a.5.5 0 0 0 .5.5H20" /><path d="M7.5 15.4l3.2-3.7 2.8 2.3 4-5.1" /><path d="M17.5 6.4H21V10" /></>),
+  reportes_pago: (<><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 9.5h19" /><path d="M6 15h4" /></>),
+  usuarios: (<><circle cx="8" cy="8" r="4.2" /><path d="M11 11.2l8 8" /><path d="M16.5 16.7l1.8-1.8" /><path d="M18.7 18.9l1.8-1.8" /></>),
+  menu: (<><path d="M4 7h16M4 12h16M4 17h16" /></>),
+  close: (<><path d="M6 6l12 12M18 6L6 18" /></>),
+  external: (<><path d="M13.5 5H19v5.5" /><path d="M19 5l-8.5 8.5" /><path d="M18 14.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3.5" /></>),
+  logout: (<><path d="M14 4.5H7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h7" /><path d="M10 12h10" /><path d="M16.5 8.5L20 12l-3.5 3.5" /></>),
+  search: (<><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></>),
+  download: (<><path d="M12 4v11" /><path d="M8 11l4 4 4-4" /><path d="M5 20h14" /></>),
+  chevron: (<><path d="M6 9l6 6 6-6" /></>),
+  check: (<><path d="M5 12.5l4.5 4.5L19 7" /></>),
+  calendar: (<><rect x="3.5" y="5" width="17" height="15.5" rx="2.4" /><path d="M3.5 10h17" /><path d="M8 3.2v3.6M16 3.2v3.6" /></>),
+  plus: (<><path d="M12 5v14M5 12h14" /></>),
+  dot: (<><circle cx="12" cy="12" r="3" /></>),
+};
+
+function Ico({ n, size = 20, className }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {ICONS[n] || ICONS.dot}
+    </svg>
+  );
+}
+
+// Encabezado de módulo: chip con icono + título + subtítulo (+ acciones a la derecha).
+function PageHead({ ico, title, sub, right }) {
+  return (
+    <div className="pnl-head">
+      <div className="pnl-head-l">
+        {ico && <span className="pnl-head-ico"><Ico n={ico} size={22} /></span>}
+        <div className="pnl-head-tt">
+          <h1>{title}</h1>
+          {sub && <p>{sub}</p>}
+        </div>
+      </div>
+      {right && <div className="pnl-head-r">{right}</div>}
+    </div>
+  );
+}
+
+// Desplegable personalizado (glass, con teclado, no se recorta: el menú va en position:fixed).
+function Sel({ value, onChange, options, placeholder = "Elige…", disabled, width, tone = "default", ariaLabel }) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState(null);
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+  const cur = options.find((o) => String(o.value) === String(value));
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (btnRef.current && btnRef.current.contains(e.target)) return;
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const repos = () => { if (btnRef.current) setRect(btnRef.current.getBoundingClientRect()); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", repos);
+    window.addEventListener("scroll", repos, true);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", repos);
+      window.removeEventListener("scroll", repos, true);
+    };
+  }, [open]);
+
+  function toggle() {
+    if (disabled) return;
+    if (!open && btnRef.current) setRect(btnRef.current.getBoundingClientRect());
+    setOpen((o) => !o);
+  }
+  function pick(v) { onChange(v); setOpen(false); }
+
+  let menuStyle = null;
+  if (rect) {
+    const abajo = window.innerHeight - rect.bottom;
+    const arriba = window.innerHeight - abajo;
+    const up = abajo < 260 && rect.top > abajo;
+    menuStyle = up
+      ? { position: "fixed", bottom: window.innerHeight - rect.top + 6, left: rect.left, minWidth: rect.width }
+      : { position: "fixed", top: rect.bottom + 6, left: rect.left, minWidth: rect.width };
+  }
+
+  return (
+    <div className={"sel" + (tone === "naranja" ? " t-naranja" : tone === "alerta" ? " t-alerta" : "")} style={width ? { width } : undefined}>
+      <button type="button" ref={btnRef} className={"sel-btn" + (open ? " open" : "")} onClick={toggle}
+        disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-label={ariaLabel}>
+        <span className={"sel-val" + (cur ? "" : " ph")}>{cur ? cur.label : placeholder}</span>
+        <span className="sel-chev"><Ico n="chevron" size={16} /></span>
+      </button>
+      {open && rect && (
+        <div ref={menuRef} className="sel-menu" role="listbox" style={menuStyle}>
+          {options.map((o) => (
+            <button type="button" key={String(o.value)} role="option" aria-selected={String(o.value) === String(value)}
+              className={"sel-opt" + (String(o.value) === String(value) ? " on" : "")} onClick={() => pick(o.value)}>
+              <span>{o.label}</span>
+              {String(o.value) === String(value) && <Ico n="check" size={15} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Panel() {
   const [estado, setEstado] = useState("cargando"); // cargando | mantenimiento | setup | login | dentro
@@ -170,82 +292,162 @@ function Shell({ sesion, onSalir }) {
   return (
     <div className="pnl">
       <style>{`
-        .pnl{position:fixed;inset:0;z-index:500;background:#FAF7F2;display:flex;flex-direction:column;
-          font-family:var(--font-cuerpo),-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--texto);}
-        .pnl-top{display:flex;align-items:center;justify-content:space-between;gap:12px;height:60px;
-          padding:0 16px;background:var(--negro);color:#fff;flex-shrink:0;}
-        .pnl-top .brand{display:flex;align-items:center;gap:10px;}
-        .pnl-top .brand img{height:30px;width:auto;display:block;}
-        .pnl-top .brand b{font-weight:700;font-size:15px;opacity:.9;}
-        .pnl-top .der{display:flex;align-items:center;gap:14px;font-size:14px;}
-        .pnl-top .der a{color:rgba(255,255,255,.7);}
-        .pnl-top .der .quien{opacity:.9;white-space:nowrap;}
-        .pnl-salir{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;
-          border-radius:999px;padding:7px 16px;font-size:13.5px;font-weight:700;cursor:pointer;}
-        .pnl-salir:hover{background:rgba(255,255,255,.22);}
-        .pnl-burger{display:none;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:2px 6px;}
+        .pnl{--zdrop:1200;--zmbg:600;--zm:601;
+          position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;color:var(--texto);
+          font-family:var(--font-cuerpo),-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+          background:
+            radial-gradient(1100px 520px at 97% -12%, rgba(255,241,222,0.85) 0%, transparent 55%),
+            radial-gradient(780px 520px at -8% 112%, rgba(252,228,236,0.5) 0%, transparent 60%),
+            #F7F3EC;}
+        .pnl svg{display:block;}
+        /* —— Barra superior: vidrio claro —— */
+        .pnl-top{position:relative;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
+          height:62px;padding:0 16px 0 14px;flex-shrink:0;color:var(--texto);
+          background:rgba(255,255,255,0.66);
+          -webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);
+          border-bottom:1px solid var(--borde);}
+        .pnl-top .brand{display:flex;align-items:center;gap:11px;min-width:0;}
+        .pnl-top .brand img{height:28px;width:auto;display:block;}
+        .pnl-top .brand b{font-weight:700;font-size:13.5px;color:var(--gris);letter-spacing:.02em;padding-left:11px;border-left:1px solid var(--borde);}
+        .pnl-top .der{display:flex;align-items:center;gap:8px;font-size:14px;}
+        .pnl-top .der .site{display:inline-flex;align-items:center;gap:6px;color:var(--gris);font-weight:600;padding:7px 11px;border-radius:10px;transition:color .18s,background .18s;}
+        .pnl-top .der .site:hover{color:var(--naranja-osc);background:rgba(241,139,17,0.1);}
+        .pnl-top .der .quien{color:var(--gris);white-space:nowrap;font-weight:600;padding-right:4px;}
+        .pnl-salir{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.9);border:1px solid var(--borde);
+          color:var(--texto);border-radius:999px;padding:7px 15px 7px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;
+          transition:background .18s,box-shadow .18s,transform .18s;}
+        .pnl-salir:hover{background:#fff;box-shadow:var(--sombra);transform:translateY(-1px);}
+        .pnl-salir svg{opacity:.65;}
+        .pnl-burger{display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.72);border:1px solid var(--borde);
+          color:var(--texto);border-radius:11px;width:38px;height:38px;cursor:pointer;padding:0;}
         .pnl-body{display:flex;flex:1;min-height:0;}
-        .pnl-aside{width:252px;background:#fff;border-right:1px solid var(--borde);overflow-y:auto;flex-shrink:0;}
-        .pnl-aside nav{padding:12px 10px;display:grid;gap:3px;}
-        .pnl-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:11px;border:none;
-          background:transparent;color:var(--texto);font-weight:500;font-size:14.5px;cursor:pointer;text-align:left;width:100%;
-          transition:background .15s;}
-        .pnl-item:hover{background:#F4F1EC;}
-        .pnl-item.on{background:var(--naranja-claro);color:var(--naranja-osc);font-weight:800;}
-        .pnl-item .ic{font-size:17px;width:22px;text-align:center;}
-        .pnl-main{flex:1;overflow-y:auto;padding:30px 34px;}
+        /* —— Menú lateral: panel esmerilado —— */
+        .pnl-aside{width:252px;flex-shrink:0;overflow-y:auto;padding:14px 12px 26px;
+          background:rgba(255,255,255,0.42);
+          -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
+          border-right:1px solid var(--borde);}
+        .pnl-aside nav{display:grid;gap:2px;}
+        .pnl-sec{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--gris);opacity:.7;padding:14px 12px 6px;}
+        .pnl-item{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:12px;border:1px solid transparent;
+          background:transparent;color:var(--texto);font-weight:550;font-size:14px;cursor:pointer;text-align:left;width:100%;
+          font-family:inherit;transition:background .16s var(--ease),color .16s,border-color .16s,box-shadow .16s;}
+        .pnl-item:hover{background:rgba(43,33,24,0.055);}
+        .pnl-item .ic{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:var(--gris);flex-shrink:0;transition:color .16s;}
+        .pnl-item:hover .ic{color:var(--texto);}
+        .pnl-item.on{background:rgba(255,255,255,0.92);border-color:var(--borde);color:var(--naranja-osc);font-weight:750;box-shadow:0 6px 16px -10px rgba(184,101,0,0.55);}
+        .pnl-item.on .ic{color:var(--naranja);}
+        .pnl-main{flex:1;overflow-y:auto;padding:30px 34px 60px;}
         .pnl-overlay{display:none;}
-        @media(max-width:820px){
+        @media(max-width:860px){
           .pnl-burger{display:inline-flex;}
           .pnl-top .der .quien{display:none;}
-          .pnl-aside{position:fixed;top:60px;left:0;bottom:0;z-index:30;transform:translateX(-102%);
-            transition:transform .25s var(--ease);box-shadow:0 20px 60px -20px rgba(0,0,0,.5);}
+          .pnl-top .der .site span{display:none;}
+          .pnl-aside{position:fixed;top:62px;left:0;bottom:0;z-index:30;width:274px;transform:translateX(-104%);
+            transition:transform .28s var(--ease);box-shadow:var(--sombra-alta);background:rgba(255,255,255,0.92);
+            -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);}
           .pnl-aside.abierto{transform:none;}
-          .pnl-overlay.abierto{display:block;position:fixed;inset:60px 0 0 0;background:rgba(0,0,0,.35);z-index:25;}
-          .pnl-main{padding:22px 18px;}
+          .pnl-overlay.abierto{display:block;position:fixed;inset:62px 0 0 0;background:rgba(43,33,24,0.32);
+            -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:25;}
+          .pnl-main{padding:22px 16px 48px;}
         }
-        /* Módulo Usuarios */
+        /* —— Encabezado de módulo —— */
+        .pnl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:22px;flex-wrap:wrap;}
+        .pnl-head-l{display:flex;align-items:flex-start;gap:13px;min-width:0;}
+        .pnl-head-ico{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:14px;flex-shrink:0;
+          background:linear-gradient(150deg,rgba(255,255,255,0.95),rgba(255,241,222,0.7));border:1px solid var(--borde);color:var(--naranja-osc);box-shadow:var(--sombra);}
+        .pnl-head-tt h1{font-size:26px;font-weight:800;color:var(--negro);letter-spacing:-0.015em;line-height:1.12;}
+        .pnl-head-tt p{color:var(--gris);font-size:14px;margin-top:3px;max-width:66ch;}
+        .pnl-head-r{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
         .u-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
-        .u-btn{background:var(--naranja);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
-        .u-btn:hover{background:var(--naranja-osc);}
-        .u-btn.sec{background:#fff;color:var(--texto);border:1px solid var(--borde);}
-        .u-btn.sec:hover{background:#F4F1EC;}
-        .u-btn.dan{background:#B3261E;color:#fff;}
+        /* —— Botones —— */
+        .u-btn{display:inline-flex;align-items:center;gap:7px;background:var(--naranja);color:#fff;border:none;border-radius:11px;padding:10px 16px;
+          font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;box-shadow:0 10px 22px -12px rgba(241,139,17,0.85);
+          transition:background .18s,box-shadow .18s,transform .18s;}
+        .u-btn:hover{background:var(--naranja-osc);transform:translateY(-1px);box-shadow:0 14px 26px -12px rgba(184,101,0,0.75);}
+        .u-btn:active{transform:translateY(0);}
+        .u-btn.sec{background:rgba(255,255,255,0.9);color:var(--texto);border:1px solid var(--borde);box-shadow:none;}
+        .u-btn.sec:hover{background:#fff;box-shadow:var(--sombra);}
+        .u-btn.dan{background:#B3261E;color:#fff;box-shadow:0 10px 22px -12px rgba(179,38,30,0.8);}
         .u-btn.dan:hover{background:#8f1e18;}
-        .u-btn:disabled{opacity:.55;cursor:default;}
-        .u-card{background:#fff;border:1px solid var(--borde);border-radius:16px;overflow:hidden;box-shadow:var(--sombra);}
+        .u-btn:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
+        /* —— Tarjetas y tablas —— */
+        .u-card{background:rgba(255,255,255,0.8);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);
+          border:1px solid var(--borde);border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sombra);}
         .u-tablewrap{overflow-x:auto;}
         .u-table{width:100%;border-collapse:collapse;font-size:14px;}
-        .u-table th{text-align:left;padding:12px 16px;background:#FAF7F2;color:var(--gris);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--borde);white-space:nowrap;}
+        .u-table th{text-align:left;padding:12px 16px;background:rgba(247,243,236,0.72);color:var(--gris);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--borde);white-space:nowrap;}
         .u-table td{padding:12px 16px;border-bottom:1px solid var(--borde);vertical-align:middle;}
+        .u-table tbody tr{transition:background .14s;}
+        .u-table tbody tr:hover{background:rgba(241,139,17,0.05);}
         .u-table tr:last-child td{border-bottom:none;}
         .u-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;}
         .u-badge.on{background:#E7F5EC;color:#1B7A3D;}
         .u-badge.off{background:#F1EEE9;color:#8A8178;}
         .u-rol{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;background:var(--naranja-claro);color:var(--naranja-osc);white-space:nowrap;}
         .u-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
-        .u-mini{background:none;border:1px solid var(--borde);border-radius:8px;padding:5px 10px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--texto);font-family:inherit;white-space:nowrap;}
-        .u-mini:hover{background:#F4F1EC;}
+        .u-mini{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.82);border:1px solid var(--borde);border-radius:9px;padding:5px 10px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--texto);font-family:inherit;white-space:nowrap;transition:background .16s,box-shadow .16s;}
+        .u-mini:hover{background:#fff;box-shadow:var(--sombra);}
         .u-mini.dan{color:#B3261E;border-color:rgba(179,38,30,.3);}
         .u-mini.dan:hover{background:rgba(179,38,30,.08);}
-        .u-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:600;padding:16px;}
-        .u-modal{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:440px;box-shadow:0 30px 80px -20px rgba(0,0,0,.5);}
+        /* —— Modales de vidrio —— */
+        .u-modal-bg{position:fixed;inset:0;background:rgba(43,33,24,0.34);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+          display:flex;align-items:center;justify-content:center;z-index:var(--zmbg);padding:16px;animation:pnlfade .2s var(--ease);}
+        .u-modal{background:rgba(255,255,255,0.9);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);
+          border:1px solid rgba(255,255,255,0.6);border-radius:var(--r-lg);padding:24px;width:100%;max-width:440px;box-shadow:var(--sombra-alta);
+          z-index:var(--zm);animation:pnlpop .22s var(--ease);}
         .u-modal h3{font-size:20px;font-weight:800;color:var(--negro);margin-bottom:2px;}
-        .u-inp,.u-sel{width:100%;padding:11px 13px;border:1px solid var(--borde);border-radius:10px;font-size:14.5px;margin-top:10px;font-family:inherit;background:#fff;color:var(--texto);}
-        .u-inp:focus,.u-sel:focus{outline:none;border-color:var(--naranja);}
-        .u-err{background:rgba(179,38,30,.1);color:#B3261E;border-radius:10px;padding:9px 13px;font-size:13.5px;margin-top:12px;}
+        .u-inp,.u-sel{width:100%;padding:11px 13px;border:1px solid var(--borde);border-radius:11px;font-size:14.5px;margin-top:10px;font-family:inherit;background:rgba(255,255,255,0.85);color:var(--texto);transition:border-color .16s,box-shadow .16s;}
+        .u-inp:focus,.u-sel:focus{outline:none;border-color:var(--naranja);box-shadow:0 0 0 3px var(--naranja-claro);}
+        .u-err{background:rgba(179,38,30,.1);color:#B3261E;border-radius:11px;padding:9px 13px;font-size:13.5px;margin-top:12px;}
+        /* —— Desplegable personalizado —— */
+        .sel{position:relative;display:inline-block;}
+        .sel-btn{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:40px;padding:8px 12px;
+          border:1px solid var(--borde);border-radius:11px;background:rgba(255,255,255,0.85);color:var(--texto);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+          transition:border-color .16s,box-shadow .16s,background .16s;}
+        .sel-btn:hover{background:#fff;}
+        .sel-btn.open{outline:none;border-color:var(--naranja);box-shadow:0 0 0 3px var(--naranja-claro);}
+        .sel-btn:disabled{opacity:.55;cursor:default;}
+        .sel-val{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .sel-val.ph{color:var(--gris);font-weight:500;}
+        .sel-chev{display:inline-flex;color:var(--gris);transition:transform .2s var(--ease);flex-shrink:0;}
+        .sel-btn.open .sel-chev{transform:rotate(180deg);}
+        .sel.t-naranja .sel-btn{background:var(--naranja-claro);border-color:transparent;color:var(--naranja-osc);font-weight:700;}
+        .sel.t-alerta .sel-btn{background:#FDECEC;border-color:transparent;color:#B3261E;font-weight:700;}
+        .sel-menu{z-index:var(--zdrop);max-height:302px;overflow-y:auto;padding:6px;border-radius:14px;
+          background:rgba(255,255,255,0.86);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%);
+          border:1px solid var(--borde);box-shadow:var(--sombra-alta);animation:pnlpop .16s var(--ease);}
+        .sel-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:9px 11px;border:none;background:transparent;border-radius:9px;
+          font-family:inherit;font-size:14px;font-weight:550;color:var(--texto);cursor:pointer;text-align:left;transition:background .12s;}
+        .sel-opt:hover{background:rgba(241,139,17,0.1);}
+        .sel-opt.on{color:var(--naranja-osc);font-weight:700;background:var(--naranja-claro);}
+        .sel-opt svg{color:var(--naranja);flex-shrink:0;}
+        /* —— Pestañas y asistencia —— */
+        .pnl-tabs{display:inline-flex;gap:4px;padding:4px;background:rgba(255,255,255,0.6);border:1px solid var(--borde);border-radius:13px;margin-bottom:18px;}
+        .pnl-tab{display:inline-flex;align-items:center;gap:7px;border:none;background:transparent;border-radius:9px;padding:8px 15px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--gris);cursor:pointer;transition:background .16s,color .16s,box-shadow .16s;}
+        .pnl-tab:hover{color:var(--texto);}
+        .pnl-tab.on{background:#fff;color:var(--naranja-osc);box-shadow:var(--sombra);}
+        .pnl-tab .ic{display:inline-flex;}
+        .aca-ok{display:inline-flex;align-items:center;gap:7px;background:#E7F5EC;color:#1B7A3D;border-radius:10px;padding:8px 13px;font-size:13.5px;font-weight:600;margin-bottom:14px;}
+        .asis-sw{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--borde);background:rgba(255,255,255,0.8);border-radius:999px;padding:5px 13px 5px 7px;font-family:inherit;font-size:13px;font-weight:700;color:var(--gris);cursor:pointer;transition:background .16s,color .16s,border-color .16s;}
+        .asis-sw .dotsw{width:17px;height:17px;border-radius:50%;background:#CFC7BC;display:inline-flex;align-items:center;justify-content:center;color:#fff;transition:background .16s;}
+        .asis-sw.pres{background:#E7F5EC;border-color:transparent;color:#1B7A3D;}
+        .asis-sw.pres .dotsw{background:#1B9048;}
+        .asis-sw:disabled{opacity:.55;cursor:default;}
+        @keyframes pnlfade{from{opacity:0;}to{opacity:1;}}
+        @keyframes pnlpop{from{opacity:0;transform:translateY(6px) scale(.985);}to{opacity:1;transform:none;}}
+        @media(prefers-reduced-motion:reduce){.pnl *{animation:none !important;transition:none !important;}}
       `}</style>
 
       <header className="pnl-top">
         <div className="brand">
-          <button className="pnl-burger" onClick={() => setNavAbierto((s) => !s)} aria-label="Menú">☰</button>
+          <button className="pnl-burger" onClick={() => setNavAbierto((s) => !s)} aria-label="Menú"><Ico n="menu" size={20} /></button>
           <img src="/logos/injuve-link.png" alt="INJUVE Link" />
           <b>Panel</b>
         </div>
         <div className="der">
-          <a href="/" target="_blank" rel="noopener noreferrer">Ver sitio ↗</a>
+          <a className="site" href="/" target="_blank" rel="noopener noreferrer"><span>Ver sitio</span><Ico n="external" size={16} /></a>
           <span className="quien">{u.nombre} · {ROL_NOMBRE[u.rol] || u.rol}</span>
-          <button className="pnl-salir" onClick={onSalir}>Salir</button>
+          <button className="pnl-salir" onClick={onSalir}><Ico n="logout" size={16} /> Salir</button>
         </div>
       </header>
 
@@ -256,7 +458,7 @@ function Shell({ sesion, onSalir }) {
             {modulos.map((m) => (
               <button key={m.id} className={"pnl-item" + (modActiva?.id === m.id ? " on" : "")}
                 onClick={() => { setActiva(m.id); setNavAbierto(false); }}>
-                <span className="ic">{m.icon}</span> {m.nombre}
+                <span className="ic"><Ico n={m.id} size={19} /></span> {m.nombre}
               </button>
             ))}
           </nav>
@@ -271,6 +473,7 @@ function Shell({ sesion, onSalir }) {
             : modActiva?.id === "maestros" ? <Maestros />
             : modActiva?.id === "pagos" ? <Pagos />
             : modActiva?.id === "programa" ? <Programa />
+            : modActiva?.id === "academico" ? <Academico />
             : <Modulo mod={modActiva} />}
         </main>
       </div>
@@ -297,8 +500,7 @@ function Dashboard({ u }) {
   ];
   return (
     <div>
-      <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>Dashboard general</h1>
-      <p style={{ color: "var(--gris)", marginBottom: 24 }}>Hola, {primer}. Este es el resumen del programa.</p>
+      <PageHead ico="dashboard" title="Dashboard general" sub={`Hola, ${primer}. Este es el resumen del programa.`} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16 }}>
         {cards.map(([t, v, sub]) => (
           <div key={t} style={{ background: "#fff", border: "1px solid var(--borde)", borderRadius: 16, padding: "20px 22px", boxShadow: "var(--sombra)" }}>
@@ -398,23 +600,19 @@ function Inscripciones() {
 
   return (
     <div>
-      <div className="u-head">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>📝 Inscripciones</h1>
-          <p style={{ color: "var(--gris)" }}>Busca alumnos, asígnales grupo y edita sus datos.</p>
-        </div>
-      </div>
+      <PageHead ico="inscripciones" title="Inscripciones" sub="Busca alumnos, asígnales grupo y edita sus datos." />
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
         <form onSubmit={buscar} style={{ display: "flex", gap: 8, flex: "1 1 260px" }}>
           <input className="u-inp" style={{ marginTop: 0, flex: 1 }} placeholder="Buscar por nombre, folio, WhatsApp o correo…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <button className="u-btn" type="submit">Buscar</button>
+          <button className="u-btn" type="submit"><Ico n="search" size={16} /> Buscar</button>
         </form>
-        <select className="u-sel" style={{ marginTop: 0, width: "auto", minWidth: 200 }} value={filtro} onChange={(e) => { setPagina(1); setFiltro(e.target.value); }}>
-          <option value="todos">Todos los grupos</option>
-          <option value="sin_grupo">Sin grupo{data ? ` (${data.sin_grupo})` : ""}</option>
-          {grupos.map((g) => <option key={g.codigo} value={g.codigo}>{g.codigo} · Nivel {g.nivel}</option>)}
-        </select>
+        <Sel width={210} value={filtro} onChange={(val) => { setPagina(1); setFiltro(val); }}
+          options={[
+            { value: "todos", label: "Todos los grupos" },
+            { value: "sin_grupo", label: `Sin grupo${data ? ` (${data.sin_grupo})` : ""}` },
+            ...grupos.map((g) => ({ value: g.codigo, label: `${g.codigo} · Nivel ${g.nivel}` })),
+          ]} />
       </div>
 
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
@@ -443,19 +641,10 @@ function Inscripciones() {
                     <td style={{ color: "var(--gris)" }}>{al.whatsapp || "—"}</td>
                     <td>
                       {puedeAsignar ? (
-                        <select
-                          value={al.grupo || ""}
-                          disabled={guardandoId === al.id}
-                          onChange={(e) => asignarGrupo(al, e.target.value)}
-                          style={{
-                            padding: "6px 8px", borderRadius: 8, border: "1px solid var(--borde)",
-                            background: al.grupo ? "var(--naranja-claro)" : "#FDECEC",
-                            color: al.grupo ? "var(--naranja-osc)" : "#B3261E",
-                            fontWeight: 700, fontSize: 13, fontFamily: "inherit", cursor: "pointer",
-                          }}>
-                          <option value="">Sin grupo</option>
-                          {grupos.map((g) => <option key={g.codigo} value={g.codigo}>{g.codigo} · N{g.nivel}</option>)}
-                        </select>
+                        <Sel width={148} tone={al.grupo ? "naranja" : "alerta"} ariaLabel="Grupo del alumno"
+                          value={al.grupo || ""} disabled={guardandoId === al.id}
+                          onChange={(val) => asignarGrupo(al, val)}
+                          options={[{ value: "", label: "Sin grupo" }, ...grupos.map((g) => ({ value: g.codigo, label: `${g.codigo} · N${g.nivel}` }))]} />
                       ) : al.grupo ? <span className="u-rol">{al.grupo}</span> : <span className="u-badge off">Sin grupo</span>}
                     </td>
                     <td>
@@ -543,16 +732,16 @@ function InscripcionModal({ alumno, grupos, puedeAsignar, puedeEstado, onClose, 
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {puedeAsignar && (
-            <select className="u-sel" style={{ flex: "1 1 200px" }} value={v.grupo} onChange={set("grupo")}>
-              <option value="">Sin grupo</option>
-              {grupos.map((g) => <option key={g.codigo} value={g.codigo}>{g.codigo} · Nivel {g.nivel} · {g.maestro}</option>)}
-            </select>
+            <div style={{ flex: "1 1 200px" }}>
+              <Sel width="100%" value={v.grupo} onChange={(val) => setV((s) => ({ ...s, grupo: val }))}
+                options={[{ value: "", label: "Sin grupo" }, ...grupos.map((g) => ({ value: g.codigo, label: `${g.codigo} · Nivel ${g.nivel} · ${g.maestro}` }))]} />
+            </div>
           )}
           {puedeEstado && (
-            <select className="u-sel" style={{ flex: "1 1 130px" }} value={v.estado} onChange={set("estado")}>
-              <option value="asignada">asignada</option>
-              <option value="pagada">pagada</option>
-            </select>
+            <div style={{ flex: "1 1 130px" }}>
+              <Sel width="100%" value={v.estado} onChange={(val) => setV((s) => ({ ...s, estado: val }))}
+                options={[{ value: "asignada", label: "asignada" }, { value: "pagada", label: "pagada" }]} />
+            </div>
           )}
         </div>
         <textarea className="u-inp" placeholder="Notas del administrador" value={v.notas_admin} onChange={set("notas_admin")} rows={2} style={{ resize: "vertical" }} />
@@ -604,13 +793,8 @@ function Grupos() {
 
   return (
     <div>
-      <div className="u-head">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>👥 Grupos</h1>
-          <p style={{ color: "var(--gris)" }}>Maestro, horario, cupo y liga de Meet de cada grupo.</p>
-        </div>
-        {puedeCrear && <button className="u-btn" onClick={() => setModal({ tipo: "nuevo" })}>+ Nuevo grupo</button>}
-      </div>
+      <PageHead ico="grupos" title="Grupos" sub="Maestro, horario, cupo y liga de Meet de cada grupo."
+        right={puedeCrear && <button className="u-btn" onClick={() => setModal({ tipo: "nuevo" })}><Ico n="plus" size={16} /> Nuevo grupo</button>} />
 
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
 
@@ -781,12 +965,7 @@ function Maestros() {
 
   return (
     <div>
-      <div className="u-head">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>🎓 Maestros</h1>
-          <p style={{ color: "var(--gris)" }}>Carga docente, teléfono y cotización por nivel. Los maestros se dan de alta en Usuarios y roles.</p>
-        </div>
-      </div>
+      <PageHead ico="maestros" title="Maestros" sub="Carga docente, teléfono y cotización por nivel. Los maestros se dan de alta en Usuarios y roles." />
 
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
 
@@ -952,15 +1131,9 @@ function Pagos() {
 
   return (
     <div>
-      <div className="u-head">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>💵 Pago a maestros</h1>
-          <p style={{ color: "var(--gris)" }}>Calculado desde la asistencia: horas impartidas × ${data?.tarifa_hora || 200}.</p>
-        </div>
-        <select className="u-sel" style={{ marginTop: 0, width: "auto" }} value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
-          {(data?.periodos && data.periodos.length ? data.periodos : ["JUL-2026"]).map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-      </div>
+      <PageHead ico="pagos" title="Pago a maestros" sub={`Calculado desde la asistencia: horas impartidas × $${data?.tarifa_hora || 200}.`}
+        right={<Sel width={150} ariaLabel="Periodo" value={periodo} onChange={(val) => setPeriodo(val)}
+          options={(data?.periodos && data.periodos.length ? data.periodos : ["JUL-2026"]).map((p) => ({ value: p, label: p }))} />} />
 
       {data && rows.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 14, marginBottom: 18 }}>
@@ -1131,18 +1304,12 @@ function MisClases() {
 
   return (
     <div>
-      <div className="u-head">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>🧑‍🏫 Mis clases</h1>
-          <p style={{ color: "var(--gris)" }}>Toma asistencia al iniciar tu clase y entra al Meet.</p>
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <select className="u-sel" style={{ marginTop: 0, width: "auto" }} value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
-            {(data?.periodos && data.periodos.length ? data.periodos : ["JUL-2026"]).map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-          {data?.puede_generar && <button className="u-btn" onClick={generar} disabled={busy}>{busy ? "…" : "🗓 Generar clases del periodo"}</button>}
-        </div>
-      </div>
+      <PageHead ico="misclases" title="Mis clases" sub="Toma asistencia al iniciar tu clase y entra al Meet."
+        right={<>
+          <Sel width={150} ariaLabel="Periodo" value={periodo} onChange={(val) => setPeriodo(val)}
+            options={(data?.periodos && data.periodos.length ? data.periodos : ["JUL-2026"]).map((p) => ({ value: p, label: p }))} />
+          {data?.puede_generar && <button className="u-btn" onClick={generar} disabled={busy}>{busy ? "…" : <><Ico n="calendar" size={16} /> Generar clases del periodo</>}</button>}
+        </>} />
 
       {data?.puede_generar && (
         <p style={{ color: "var(--gris)", fontSize: 13, marginBottom: 12 }}>
@@ -1267,19 +1434,12 @@ function Programa() {
 
   return (
     <div>
-      <div className="u-head">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>📚 Programa y clases</h1>
-          <p style={{ color: "var(--gris)" }}>Los módulos del currículo de cada grupo (temas y fechas).</p>
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <select className="u-sel" style={{ marginTop: 0, width: "auto", minWidth: 190 }} value={group} onChange={(e) => setGroup(e.target.value)}>
-            <option value="">Elige un grupo…</option>
-            {grupos.map((g) => <option key={g.id} value={g.id}>{g.codigo} · Nivel {g.nivel}</option>)}
-          </select>
-          {puede && group && <button className="u-btn" onClick={() => setModal({ tipo: "nuevo" })}>+ Nuevo módulo</button>}
-        </div>
-      </div>
+      <PageHead ico="programa" title="Programa y clases" sub="Los módulos del currículo de cada grupo (temas y fechas)."
+        right={<>
+          <Sel width={210} placeholder="Elige un grupo…" ariaLabel="Grupo" value={group} onChange={(val) => setGroup(val)}
+            options={grupos.map((g) => ({ value: g.id, label: `${g.codigo} · Nivel ${g.nivel}` }))} />
+          {puede && group && <button className="u-btn" onClick={() => setModal({ tipo: "nuevo" })}><Ico n="plus" size={16} /> Nuevo módulo</button>}
+        </>} />
 
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
 
@@ -1383,14 +1543,227 @@ function ProgramaModuloModal({ modal, groupId, onClose, onDone }) {
   );
 }
 
+function Academico() {
+  const [data, setData] = useState(null);
+  const [group, setGroup] = useState("");
+  const [tab, setTab] = useState("asistencia"); // asistencia | calificaciones
+  const [sesion, setSesion] = useState("");
+  const [modulo, setModulo] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
+  const [presentes, setPresentes] = useState({});
+  const [grades, setGrades] = useState({});
+  const [busy, setBusy] = useState(false);
+
+  async function cargar() {
+    setCargando(true); setError("");
+    try {
+      const qs = new URLSearchParams();
+      if (group) qs.set("group", group);
+      if (tab === "asistencia" && sesion) qs.set("sesion", sesion);
+      if (tab === "calificaciones" && modulo) qs.set("modulo", modulo);
+      const r = await fetch("/api/panel/academico?" + qs.toString());
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo cargar.");
+      setData(d);
+      const roster = d.alumnos || [];
+      if (d.sesion) {
+        const map = d.asistencia || {};
+        const hay = Object.keys(map).length > 0;
+        const p = {};
+        roster.forEach((a) => { p[a.enrollment_id] = a.enrollment_id in map ? !!map[a.enrollment_id] : !hay; });
+        setPresentes(p);
+      }
+      if (d.modulo) {
+        const map = d.calificaciones || {};
+        const g = {};
+        roster.forEach((a) => { const c = map[a.enrollment_id]; g[a.enrollment_id] = { calificacion: c && c.calificacion != null ? String(c.calificacion) : "", comentario: (c && c.comentario) || "" }; });
+        setGrades(g);
+      }
+    } catch (e) { setError(e.message); }
+    setCargando(false);
+  }
+  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [group, sesion, modulo, tab]);
+
+  function elegirGrupo(v) { setGroup(v); setSesion(""); setModulo(""); setPresentes({}); setGrades({}); setOk(""); setError(""); }
+  function cambiarTab(t) { if (t === tab) return; setTab(t); setOk(""); setError(""); }
+
+  const grupos = data?.grupos || [];
+  const roster = data?.alumnos || [];
+  const sesiones = data?.sesiones || [];
+  const modulos = data?.modulos || [];
+  const puedeAsist = data?.puede_asist;
+  const puedeCalif = data?.puede_calif;
+
+  const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const fSes = (s) => { const dt = new Date(s.fecha + "T00:00:00"); return `${DIAS[dt.getDay()]} ${dt.getDate()} ${MES[dt.getMonth()]}${s.hora ? " · " + s.hora.slice(0, 5) : ""}`; };
+  const nPres = roster.reduce((n, a) => n + (presentes[a.enrollment_id] ? 1 : 0), 0);
+
+  function togglePres(id) { setPresentes((s) => ({ ...s, [id]: !s[id] })); setOk(""); }
+  function todos(val) { const p = {}; roster.forEach((a) => { p[a.enrollment_id] = val; }); setPresentes(p); setOk(""); }
+  function setGrade(id, k, val) { setGrades((s) => ({ ...s, [id]: { ...(s[id] || { calificacion: "", comentario: "" }), [k]: val } })); setOk(""); }
+
+  async function guardarAsistencia() {
+    setBusy(true); setError(""); setOk("");
+    try {
+      const registros = roster.map((a) => ({ enrollment_id: a.enrollment_id, presente: !!presentes[a.enrollment_id] }));
+      const r = await fetch("/api/panel/academico", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group_id: group, sesion_id: sesion, registros }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo guardar.");
+      setOk(`Asistencia guardada: ${d.presentes} presente(s) de ${d.total}.`);
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  }
+
+  async function guardarCalif() {
+    setBusy(true); setError(""); setOk("");
+    try {
+      const registros = roster.map((a) => ({ enrollment_id: a.enrollment_id, calificacion: grades[a.enrollment_id]?.calificacion ?? "", comentario: grades[a.enrollment_id]?.comentario ?? "" }));
+      const r = await fetch("/api/panel/academico", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group_id: group, modulo_id: modulo, registros }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo guardar.");
+      setOk(`Calificaciones guardadas (${d.guardadas}).`);
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  }
+
+  function descargar() {
+    const gcod = grupos.find((g) => g.id === group)?.codigo || "grupo";
+    let filas, nombre;
+    if (tab === "asistencia") {
+      const s = sesiones.find((x) => x.id === sesion);
+      filas = [["Alumno", "Folio", "Asistencia"]];
+      roster.forEach((a) => filas.push([a.nombre, a.folio || "", presentes[a.enrollment_id] ? "Presente" : "Ausente"]));
+      nombre = `asistencia_${gcod}_${s ? s.fecha : ""}.csv`;
+    } else {
+      const m = modulos.find((x) => x.id === modulo);
+      filas = [["Alumno", "Folio", "Calificacion", "Comentario"]];
+      roster.forEach((a) => { const c = grades[a.enrollment_id] || {}; filas.push([a.nombre, a.folio || "", c.calificacion || "", c.comentario || ""]); });
+      nombre = `calificaciones_${gcod}_${m ? m.nombre : ""}.csv`;
+    }
+    const csv = filas.map((row) => row.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = nombre.replace(/\s+/g, "_"); a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div>
+      <PageHead ico="academico" title="Asistencia y calificaciones" sub="Pasa lista por sesión y captura calificaciones por módulo."
+        right={<Sel width={210} placeholder="Elige un grupo…" ariaLabel="Grupo" value={group} onChange={elegirGrupo}
+          options={grupos.map((g) => ({ value: g.id, label: `${g.codigo} · Nivel ${g.nivel}` }))} />} />
+
+      {!group ? (
+        <div className="u-card"><div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Elige un grupo para tomar asistencia o capturar calificaciones.</div></div>
+      ) : (
+        <>
+          <div className="pnl-tabs">
+            <button className={"pnl-tab" + (tab === "asistencia" ? " on" : "")} onClick={() => cambiarTab("asistencia")}><span className="ic"><Ico n="academico" size={16} /></span> Asistencia</button>
+            <button className={"pnl-tab" + (tab === "calificaciones" ? " on" : "")} onClick={() => cambiarTab("calificaciones")}><span className="ic"><Ico n="reportes" size={16} /></span> Calificaciones</button>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+            {tab === "asistencia" ? (
+              <Sel width={280} placeholder="Elige una sesión…" ariaLabel="Sesión" value={sesion} onChange={(v) => { setSesion(v); setOk(""); }}
+                options={sesiones.map((s) => ({ value: s.id, label: fSes(s) }))} />
+            ) : (
+              <Sel width={280} placeholder="Elige un módulo…" ariaLabel="Módulo" value={modulo} onChange={(v) => { setModulo(v); setOk(""); }}
+                options={modulos.map((m) => ({ value: m.id, label: `${m.orden}. ${m.nombre}` }))} />
+            )}
+            {tab === "asistencia" && sesion && roster.length > 0 && <span style={{ color: "var(--gris)", fontSize: 13.5, fontWeight: 600 }}>{nPres} de {roster.length} presentes</span>}
+          </div>
+
+          {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
+          {ok && <div className="aca-ok"><Ico n="check" size={16} /> {ok}</div>}
+
+          {tab === "asistencia" && !sesion ? (
+            <div className="u-card"><div style={{ padding: 34, textAlign: "center", color: "var(--gris)" }}>{sesiones.length ? "Elige una sesión para pasar lista." : "Este grupo aún no tiene sesiones. Genéralas en Mis clases."}</div></div>
+          ) : tab === "calificaciones" && !modulo ? (
+            <div className="u-card"><div style={{ padding: 34, textAlign: "center", color: "var(--gris)" }}>{modulos.length ? "Elige un módulo para capturar calificaciones." : "Este grupo aún no tiene módulos. Créalos en Programa y clases."}</div></div>
+          ) : cargando ? (
+            <div className="u-card"><div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Cargando…</div></div>
+          ) : !roster.length ? (
+            <div className="u-card"><div style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Este grupo no tiene alumnos activos.</div></div>
+          ) : (
+            <>
+              {tab === "asistencia" && puedeAsist && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <button className="u-mini" onClick={() => todos(true)}>Todos presentes</button>
+                  <button className="u-mini" onClick={() => todos(false)}>Todos ausentes</button>
+                </div>
+              )}
+              <div className="u-card">
+                <div className="u-tablewrap">
+                  <table className="u-table">
+                    {tab === "asistencia" ? (
+                      <>
+                        <thead><tr><th>Alumno</th><th style={{ textAlign: "right" }}>Asistencia</th></tr></thead>
+                        <tbody>
+                          {roster.map((a) => {
+                            const pres = !!presentes[a.enrollment_id];
+                            return (
+                              <tr key={a.enrollment_id}>
+                                <td style={{ fontWeight: 600 }}>{a.nombre}<div style={{ fontSize: 12, color: "var(--gris)", fontWeight: 400 }}>{a.folio || ""}</div></td>
+                                <td style={{ textAlign: "right" }}>
+                                  <button type="button" className={"asis-sw" + (pres ? " pres" : "")} disabled={!puedeAsist} onClick={() => togglePres(a.enrollment_id)} aria-pressed={pres}>
+                                    <span className="dotsw">{pres ? <Ico n="check" size={12} /> : null}</span>{pres ? "Presente" : "Ausente"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </>
+                    ) : (
+                      <>
+                        <thead><tr><th>Alumno</th><th style={{ width: 130 }}>Calif. (0–100)</th><th>Comentario</th></tr></thead>
+                        <tbody>
+                          {roster.map((a) => {
+                            const c = grades[a.enrollment_id] || { calificacion: "", comentario: "" };
+                            return (
+                              <tr key={a.enrollment_id}>
+                                <td style={{ fontWeight: 600 }}>{a.nombre}<div style={{ fontSize: 12, color: "var(--gris)", fontWeight: 400 }}>{a.folio || ""}</div></td>
+                                <td>
+                                  <input className="u-inp" style={{ marginTop: 0, width: 96 }} type="number" min="0" max="100" step="1" placeholder="—"
+                                    value={c.calificacion} disabled={!puedeCalif} onChange={(e) => setGrade(a.enrollment_id, "calificacion", e.target.value)} />
+                                </td>
+                                <td>
+                                  <input className="u-inp" style={{ marginTop: 0 }} placeholder="Opcional"
+                                    value={c.comentario} disabled={!puedeCalif} onChange={(e) => setGrade(a.enrollment_id, "comentario", e.target.value)} />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </>
+                    )}
+                  </table>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <button className="u-btn sec" onClick={descargar}><Ico n="download" size={16} /> Descargar</button>
+                {tab === "asistencia" && puedeAsist && <button className="u-btn" onClick={guardarAsistencia} disabled={busy}>{busy ? "…" : "Guardar asistencia"}</button>}
+                {tab === "calificaciones" && puedeCalif && <button className="u-btn" onClick={guardarCalif} disabled={busy}>{busy ? "…" : "Guardar calificaciones"}</button>}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Modulo({ mod }) {
   if (!mod) return <p style={{ color: "var(--gris)" }}>Tu rol aún no tiene módulos con pantalla.</p>;
   return (
     <div>
-      <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>{mod.icon} {mod.nombre}</h1>
-      <p style={{ color: "var(--gris)", marginBottom: 24 }}>{mod.desc}</p>
-      <div style={{ background: "#fff", border: "1px dashed rgba(184,101,0,0.4)", borderRadius: 18, padding: "46px 24px", textAlign: "center" }}>
-        <div style={{ fontSize: 44, marginBottom: 12 }}>{mod.icon}</div>
+      <PageHead ico={mod.id} title={mod.nombre} sub={mod.desc} />
+      <div style={{ background: "rgba(255,255,255,0.6)", border: "1px dashed rgba(184,101,0,0.4)", borderRadius: "var(--r-lg)", padding: "46px 24px", textAlign: "center" }}>
+        <div style={{ display: "inline-flex", color: "var(--naranja-osc)", marginBottom: 12 }}><Ico n={mod.id} size={40} /></div>
         <p style={{ fontWeight: 800, color: "var(--texto)", fontSize: 17 }}>Módulo en construcción</p>
         <p style={{ fontSize: 14, color: "var(--gris)", marginTop: 4 }}>Lo estamos habilitando paso a paso.</p>
       </div>
@@ -1435,13 +1808,8 @@ function Usuarios() {
 
   return (
     <div>
-      <div className="u-head">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "var(--negro)", letterSpacing: "-0.01em" }}>🔑 Usuarios y roles</h1>
-          <p style={{ color: "var(--gris)" }}>Da de alta al equipo: administración, maestros, coordinador y agentes.</p>
-        </div>
-        {puedeG && <button className="u-btn" onClick={() => setModal({ tipo: "nuevo" })}>+ Nuevo usuario</button>}
-      </div>
+      <PageHead ico="usuarios" title="Usuarios y roles" sub="Da de alta al equipo: administración, maestros, coordinador y agentes."
+        right={puedeG && <button className="u-btn" onClick={() => setModal({ tipo: "nuevo" })}><Ico n="plus" size={16} /> Nuevo usuario</button>} />
 
       {error && <div className="u-err" style={{ marginBottom: 14 }}>{error}</div>}
 
@@ -1547,9 +1915,10 @@ function UsuarioModal({ modal, roles, esYo, onClose, onDone }) {
           <>
             <input className="u-inp" placeholder="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
             <input className="u-inp" type="email" placeholder="Correo" value={correo} onChange={(e) => setCorreo(e.target.value)} autoComplete="off" />
-            <select className="u-sel" value={rol} onChange={(e) => setRol(e.target.value)} disabled={esYo && modal.tipo === "editar"}>
-              {roles.map((r) => <option key={r.codigo} value={r.codigo}>{r.nombre}</option>)}
-            </select>
+            <div style={{ marginTop: 10 }}>
+              <Sel width="100%" ariaLabel="Rol" value={rol} disabled={esYo && modal.tipo === "editar"} onChange={(val) => setRol(val)}
+                options={roles.map((r) => ({ value: r.codigo, label: r.nombre }))} />
+            </div>
             {esYo && modal.tipo === "editar" && <p style={{ color: "var(--gris)", fontSize: 12.5, marginTop: 6 }}>No puedes cambiar tu propio rol.</p>}
             {modal.tipo === "nuevo" && <input className="u-inp" type="password" placeholder="Contraseña (mín. 8)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />}
           </>
