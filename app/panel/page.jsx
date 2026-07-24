@@ -315,10 +315,10 @@ function Shell({ sesion, onSalir }) {
           position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;color:var(--texto);
           font-family:var(--font-cuerpo),-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
           background:
-            radial-gradient(1000px 720px at 100% -10%, rgba(241,139,17,0.42) 0%, transparent 56%),
-            radial-gradient(820px 700px at -8% 110%, rgba(255,170,60,0.34) 0%, transparent 60%),
-            radial-gradient(680px 520px at 52% 122%, rgba(241,139,17,0.16) 0%, transparent 62%),
-            #FDF0DF;}
+            radial-gradient(760px 560px at 14% -20%, rgba(255,178,74,0.20) 0%, transparent 62%),
+            radial-gradient(1000px 740px at 102% -12%, rgba(241,139,17,0.26) 0%, transparent 58%),
+            radial-gradient(880px 720px at -8% 114%, rgba(255,150,40,0.20) 0%, transparent 62%),
+            #FEF5EA;}
         .pnl svg{display:block;}
         /* —— Barra superior: vidrio claro —— */
         .pnl-top{position:relative;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -343,7 +343,7 @@ function Shell({ sesion, onSalir }) {
         .pnl-body{display:flex;flex:1;min-height:0;}
         /* —— Menú lateral: panel esmerilado —— */
         .pnl-aside{width:252px;flex-shrink:0;overflow-y:auto;padding:14px 12px 26px;
-          background:rgba(255,255,255,0.52);
+          background:rgba(255,250,244,0.5);
           -webkit-backdrop-filter:blur(20px) saturate(185%);backdrop-filter:blur(20px) saturate(185%);
           border-right:1px solid rgba(255,255,255,0.5);}
         .pnl-aside nav{display:grid;gap:5px;}
@@ -391,13 +391,13 @@ function Shell({ sesion, onSalir }) {
         .u-btn.dan:hover{background:#8f1e18;}
         .u-btn:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none;}
         /* —— Tarjetas y tablas —— */
-        .u-glass{background:rgba(255,255,255,0.58);-webkit-backdrop-filter:blur(16px) saturate(185%);backdrop-filter:blur(16px) saturate(185%);
-          border:1px solid rgba(255,255,255,0.7);border-radius:var(--r-md);box-shadow:0 12px 30px -14px rgba(140,80,10,0.28), inset 0 1px 0 rgba(255,255,255,0.7);}
-        .u-card{background:rgba(255,255,255,0.58);-webkit-backdrop-filter:blur(16px) saturate(185%);backdrop-filter:blur(16px) saturate(185%);
-          border:1px solid rgba(255,255,255,0.7);border-radius:var(--r-md);overflow:hidden;box-shadow:0 12px 30px -14px rgba(140,80,10,0.28), inset 0 1px 0 rgba(255,255,255,0.7);}
+        .u-glass{background:rgba(248,214,170,0.40);-webkit-backdrop-filter:blur(18px) saturate(200%);backdrop-filter:blur(18px) saturate(200%);
+          border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);box-shadow:0 16px 36px -18px rgba(150,84,8,0.36), inset 0 1px 0 rgba(255,255,255,0.7);}
+        .u-card{background:rgba(248,214,170,0.40);-webkit-backdrop-filter:blur(18px) saturate(200%);backdrop-filter:blur(18px) saturate(200%);
+          border:1px solid rgba(255,255,255,0.55);border-radius:var(--r-md);overflow:hidden;box-shadow:0 16px 36px -18px rgba(150,84,8,0.36), inset 0 1px 0 rgba(255,255,255,0.7);}
         .u-tablewrap{overflow-x:auto;}
         .u-table{width:100%;border-collapse:collapse;font-size:14px;}
-        .u-table th{text-align:left;padding:12px 16px;background:rgba(247,243,236,0.72);color:var(--gris);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--borde);white-space:nowrap;}
+        .u-table th{text-align:left;padding:12px 16px;background:rgba(241,139,17,0.12);color:#5A4326;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--borde);white-space:nowrap;}
         .u-table td{padding:12px 16px;border-bottom:1px solid var(--borde);vertical-align:middle;}
         .u-table tbody tr{transition:background .14s;}
         .u-table tbody tr:hover{background:rgba(241,139,17,0.05);}
