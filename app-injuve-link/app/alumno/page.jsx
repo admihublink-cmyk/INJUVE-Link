@@ -78,6 +78,9 @@ export default function Alumno() {
   }
 
   const a = data.alumno;
+  if (a && a.password_cambiada === false) {
+    return <CambiarClave nombre={a.nombre} onListo={cargar} onSalir={salir} />;
+  }
   const g = data.grupo;
   const primer = (a.nombre || "").trim().split(/\s+/)[0] || "alumno(a)";
   const tieneClase = Boolean(g && g.liga_meet);
@@ -188,6 +191,68 @@ export default function Alumno() {
           ¿Algo no cuadra? Escríbenos por WhatsApp al{" "}
           <a href="https://wa.me/528119039372" target="_blank" rel="noopener noreferrer">81 1903 9372</a>.
         </p>
+      </div>
+    </main>
+  );
+}
+
+// Primer acceso: el alumno debe crear su propia contraseña (reemplaza la genérica) antes de entrar.
+function CambiarClave({ nombre, onListo, onSalir }) {
+  const [p1, setP1] = useState("");
+  const [p2, setP2] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const primer = (nombre || "").trim().split(/\s+/)[0] || "alumno(a)";
+  const inpStyle = { width: "100%", padding: "13px 15px", borderRadius: 12, border: "1px solid var(--borde)", background: "#fff", fontSize: 16, marginTop: 10, fontFamily: "inherit", boxSizing: "border-box" };
+
+  async function guardar(e) {
+    e.preventDefault();
+    setError("");
+    if (p1.length < 8) return setError("La contraseña debe tener al menos 8 caracteres.");
+    if (p1 !== p2) return setError("Las contraseñas no coinciden.");
+    setBusy(true);
+    try {
+      const r = await fetch("/api/alumno/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: p1 }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No pudimos guardar tu contraseña.");
+      onListo();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="al-fondo">
+      <header className="al-top">
+        <img src="/logos/injuve-link.png" alt="INJUVE Link" className="al-logo" />
+        <button className="al-salir" onClick={onSalir}>Salir</button>
+      </header>
+      <div className="al-wrap">
+        <div className="al-card entra" style={{ maxWidth: 460, margin: "5vh auto 0" }}>
+          <h1 style={{ fontSize: 22, marginBottom: 4 }}>¡Bienvenido(a), {primer}! 👋</h1>
+          <p style={{ color: "var(--gris)", marginBottom: 6 }}>
+            Por tu seguridad, crea tu propia contraseña para entrar al portal. La usarás cada vez que ingreses.
+          </p>
+          <form onSubmit={guardar}>
+            <input type="password" style={inpStyle} placeholder="Nueva contraseña (mín. 8)" value={p1}
+              onChange={(e) => setP1(e.target.value)} autoComplete="new-password" aria-label="Nueva contraseña" />
+            <input type="password" style={inpStyle} placeholder="Repite tu contraseña" value={p2}
+              onChange={(e) => setP2(e.target.value)} autoComplete="new-password" aria-label="Repite tu contraseña" />
+            <button type="submit" className="btn btn-cta" style={{ width: "100%", marginTop: 14 }} disabled={busy}>
+              {busy ? "Guardando…" : "Guardar y entrar"}
+            </button>
+          </form>
+          {error && (
+            <p className="nota" role="status" style={{ background: "rgba(179,38,30,0.35)", borderRadius: 12, padding: "10px 14px" }}>
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     </main>
   );
