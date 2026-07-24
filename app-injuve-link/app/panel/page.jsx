@@ -2153,7 +2153,7 @@ function DocAvatar({ nombre, size = 44 }) {
 }
 function DocBadge({ estado, locked }) {
   const m = { pendiente: ["Pendiente", "rgba(110,98,88,.14)", "#6E6258"], subido: ["En revisión", "rgba(45,125,210,.16)", "#1C5A96"], aprobado: ["Aprobado", "rgba(27,122,61,.16)", "#177A3B"], rechazado: ["Rechazado", "rgba(179,38,30,.14)", "#B3261E"] };
-  const [t, bg, c] = locked ? ["Bloqueado", "rgba(110,98,88,.1)", "#8A8178"] : (m[estado] || m.pendiente);
+  const [t, bg, c] = locked ? ["En espera", "rgba(110,98,88,.1)", "#8A8178"] : (m[estado] || m.pendiente);
   return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", background: bg, color: c }}>{t}</span>;
 }
 function DocBarra({ label, ap, tot, sub }) {
@@ -2184,6 +2184,7 @@ function Documentos() {
   const [linkVal, setLinkVal] = useState("");
   const [rechazo, setRechazo] = useState(null);
   const [notaVal, setNotaVal] = useState("");
+  const [abiertos, setAbiertos] = useState({ basico: false, honorarios: true });
   const fileRef = useRef(null);
   const objetivoRef = useRef(null);
 
@@ -2275,7 +2276,7 @@ function Documentos() {
         <div className="u-acts" style={{ minWidth: 150, justifyContent: "flex-end" }}>
           {verHref && <a className="u-mini" href={verHref} target="_blank" rel="noopener noreferrer" style={{ color: "var(--naranja-osc)", fontWeight: 700 }}>Ver ↗</a>}
           {!it.locked && (it.es_link
-            ? <button className="u-mini" disabled={busy} onClick={() => { setLinkVal(it.enlace || ""); setError(""); setLinkModal({ tipo: it.tipo }); }}>{busy ? "…" : (tiene ? "Editar" : "Agregar")}</button>
+            ? <button className="u-mini" disabled={busy} onClick={() => { setLinkVal(it.enlace || ""); setError(""); setLinkModal({ tipo: it.tipo }); }}>{busy ? "…" : (tiene ? "Reemplazar" : "Subir")}</button>
             : <button className="u-mini" disabled={busy} onClick={() => pedirArchivo(cat, it.tipo)}>{busy ? "…" : (tiene ? "Reemplazar" : "Subir")}</button>)}
           {esAdmin && tiene && it.estado !== "aprobado" && <button className="u-mini" disabled={busy} style={{ color: "#177A3B", borderColor: "rgba(23,122,59,.4)", fontWeight: 700 }} onClick={() => decidir(it.id, "aprobar")}>Aprobar</button>}
           {esAdmin && tiene && it.estado !== "rechazado" && <button className="u-mini dan" disabled={busy} onClick={() => { setNotaVal(""); setRechazo({ id: it.id, label: it.label }); }}>Rechazar</button>}
@@ -2285,13 +2286,25 @@ function Documentos() {
   }
 
   function renderSeccion(titulo, sub, cat, items) {
+    const abierto = abiertos[cat];
+    const lista = items || [];
+    const ap = lista.filter((x) => x.estado === "aprobado").length;
+    const full = lista.length > 0 && ap === lista.length;
     return (
-      <div className="u-card" style={{ padding: "14px 18px 6px", marginBottom: 16 }}>
-        <div style={{ marginBottom: 4 }}>
-          <div style={{ fontWeight: 800, fontSize: 16, color: "var(--negro)" }}>{titulo}</div>
-          {sub && <div style={{ fontSize: 13, color: "var(--gris)", marginTop: 2 }}>{sub}</div>}
-        </div>
-        {(items || []).map((it) => renderFila(cat, it))}
+      <div className="u-card" style={{ padding: "8px 18px", marginBottom: 16 }}>
+        <button onClick={() => setAbiertos((a) => ({ ...a, [cat]: !a[cat] }))} style={{ all: "unset", boxSizing: "border-box", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", padding: "8px 0" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--negro)" }}>{titulo}</div>
+            {sub && <div style={{ fontSize: 13, color: "var(--gris)", marginTop: 2 }}>{sub}</div>}
+          </div>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: full ? "rgba(27,122,61,.15)" : "rgba(241,139,17,0.14)", color: full ? "#177A3B" : "var(--naranja-osc)" }}>{ap}/{lista.length}</span>
+            <span style={{ display: "inline-flex", transform: abierto ? "rotate(180deg)" : "none", transition: "transform .2s", color: "var(--gris)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+            </span>
+          </span>
+        </button>
+        {abierto && <div style={{ marginTop: 2, paddingBottom: 6 }}>{lista.map((it) => renderFila(cat, it))}</div>}
       </div>
     );
   }
@@ -2347,7 +2360,7 @@ function Documentos() {
             {data.listo_pago && <span style={{ ...pillVerde, fontSize: 14, padding: "7px 15px" }}><Ico n="check" size={15} /> Listo para pago</span>}
           </div>
           {renderSeccion("Documentos básicos", "Una sola vez por maestro.", "basico", data.basicos)}
-          {renderSeccion(`Documentos de honorarios · ${periodo}`, "Por periodo. La factura y el XML se habilitan cuando administración aprueba evidencias, ficha, cotización y lista de asistencia.", "honorarios", data.honorarios)}
+          {renderSeccion(`Documentos de honorarios · ${periodo}`, "Por periodo · la factura se habilita al aprobar los primeros cuatro.", "honorarios", data.honorarios)}
         </div>
       ) : (
         <div className="u-card" style={{ padding: 40, textAlign: "center", color: "var(--gris)" }}>Sin datos.</div>
