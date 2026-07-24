@@ -81,6 +81,11 @@ const DIAS_CORTO = { "1": "Lun", "2": "Mar", "3": "Mié", "4": "Jue", "5": "Vie"
 function fmtDias(csv) {
   return String(csv || "").split(",").map((s) => s.trim()).filter(Boolean).map((n) => DIAS_CORTO[n] || "").filter(Boolean).join(" · ");
 }
+// Horario por clase → "Mar 17:00 · Jue 17:00".
+function fmtHorario(slots) {
+  if (!Array.isArray(slots) || !slots.length) return "";
+  return slots.map((s) => `${DIAS_CORTO[String(s.dia)] || ""} ${String(s.hora_inicio || "").slice(0, 5)}`.trim()).join(" · ");
+}
 
 // Encabezado de módulo: chip con icono + título + subtítulo (+ acciones a la derecha).
 function PageHead({ ico, title, sub, right }) {
@@ -537,7 +542,7 @@ function Dashboard({ u }) {
                       <tr key={i} style={esHoy ? { background: "#FFF8EE" } : undefined}>
                         <td style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{`${DIAS_L[dt.getDay()]} ${dt.getDate()} ${MES[dt.getMonth()]}`}{esHoy && <span style={{ color: "var(--naranja-osc)", fontSize: 11, marginLeft: 6, fontWeight: 800 }}>HOY</span>}</td>
                         <td><b>{c.codigo}</b> <span className="u-rol">N{c.nivel}</span></td>
-                        <td style={{ color: "var(--gris)" }}>{(c.hora_inicio || "").slice(0, 5) || c.horario || "—"}</td>
+                        <td style={{ color: "var(--gris)" }}>{(c.hora || "").slice(0, 5) || "—"}</td>
                         <td>{c.maestro || "—"}</td>
                         <td>{c.liga_meet ? <a href={c.liga_meet} target="_blank" rel="noopener noreferrer" style={{ color: "var(--naranja-osc)", fontWeight: 700 }}>Meet ↗</a> : <span style={{ color: "var(--gris)" }}>—</span>}</td>
                       </tr>
@@ -570,8 +575,9 @@ function Dashboard({ u }) {
                       <td><span className="u-rol">Nivel {g.nivel}</span></td>
                       <td>{g.maestro || "—"}</td>
                       <td style={{ color: "var(--gris)" }}>
-                        {fmtDias(g.dias) && <div style={{ color: "var(--texto)", fontWeight: 600 }}>{fmtDias(g.dias)}</div>}
-                        <div style={{ fontSize: 13 }}>{g.horario || "—"}</div>
+                        {fmtHorario(g.horario_slots)
+                          ? <div style={{ color: "var(--texto)", fontWeight: 600 }}>{fmtHorario(g.horario_slots)}</div>
+                          : <div style={{ fontSize: 13 }}>{g.horario || "—"}</div>}
                       </td>
                       <td style={{ textAlign: "center", fontWeight: 600 }}>
                         {g.inscritos}<span style={{ color: "var(--gris)", fontWeight: 400 }}> / {g.cupo}</span>
@@ -903,27 +909,38 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
     codigo: g.codigo || "", periodo: g.periodo || periodos[0] || "JUL-2026",
     nivel: g.nivel || "", maestro: g.maestro || "", horario: g.horario || "",
     cupo: g.cupo != null ? String(g.cupo) : "", liga_meet: g.liga_meet || "",
-    hora_inicio: (g.hora_inicio || "").slice(0, 5),
-    duracion_horas: g.duracion_horas != null ? String(g.duracion_horas) : "",
-    dias: g.dias ? String(g.dias).split(",").map((x) => x.trim()).filter(Boolean) : [],
+  });
+  const [clases, setClases] = useState(() => {
+    const src = Array.isArray(g.horario_slots) ? g.horario_slots : [];
+    if (src.length) return src.map((s) => ({ dia: String(s.dia), hora: String(s.hora_inicio || "").slice(0, 5), dur: String(s.duracion_horas ?? "2") }));
+    return [{ dia: "", hora: "", dur: "2" }];
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setV((s) => ({ ...s, [k]: e.target.value }));
-  const toggleDia = (n) => setV((s) => ({ ...s, dias: s.dias.includes(n) ? s.dias.filter((d) => d !== n) : [...s.dias, n] }));
+  const setClase = (i, k, val) => setClases((cs) => cs.map((c, j) => (j === i ? { ...c, [k]: val } : c)));
+  const setModalidad = (n) => setClases((cs) => {
+    if (n === cs.length) return cs;
+    if (n < cs.length) return cs.slice(0, n);
+    const add = [];
+    for (let k = cs.length; k < n; k++) add.push({ dia: "", hora: "", dur: "2" });
+    return [...cs, ...add];
+  });
   const titulos = { nuevo: "Nuevo grupo", editar: "Editar grupo", borrar: "Borrar grupo" };
+  const DIAS_OPC = [["1", "Lunes"], ["2", "Martes"], ["3", "Miércoles"], ["4", "Jueves"], ["5", "Viernes"], ["6", "Sábado"], ["7", "Domingo"]].map(([value, label]) => ({ value, label }));
 
   async function enviar(e) {
     e.preventDefault(); setError(""); setBusy(true);
     try {
+      const horario_slots = clases.filter((c) => c.dia && c.hora).map((c) => ({ dia: Number(c.dia), hora: c.hora, dur: Number(c.dur) || 2 }));
       let r;
       if (modal.tipo === "borrar") {
         r = await fetch("/api/panel/grupos", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: g.id }) });
       } else if (modal.tipo === "nuevo") {
-        r = await fetch("/api/panel/grupos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: v.codigo, periodo: v.periodo, nivel: v.nivel, maestro: v.maestro, horario: v.horario, cupo: v.cupo, liga_meet: v.liga_meet, dias: v.dias.join(","), hora_inicio: v.hora_inicio, duracion_horas: v.duracion_horas }) });
+        r = await fetch("/api/panel/grupos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: v.codigo, periodo: v.periodo, nivel: v.nivel, maestro: v.maestro, horario: v.horario, cupo: v.cupo, liga_meet: v.liga_meet, horario_slots }) });
       } else {
         const body = { id: g.id };
-        if (puedeEditar) { body.nivel = v.nivel; body.horario = v.horario; body.cupo = v.cupo; body.liga_meet = v.liga_meet; body.dias = v.dias.join(","); body.hora_inicio = v.hora_inicio; body.duracion_horas = v.duracion_horas; }
+        if (puedeEditar) { body.nivel = v.nivel; body.horario = v.horario; body.cupo = v.cupo; body.liga_meet = v.liga_meet; body.horario_slots = horario_slots; }
         if (puedeMaestro) { body.maestro = v.maestro; }
         r = await fetch("/api/panel/grupos", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
@@ -952,27 +969,33 @@ function GrupoModal({ modal, maestros, periodos, puedeMaestro, puedeEditar, onCl
             </div>
             <input className="u-inp" placeholder="Maestro" value={v.maestro} onChange={set("maestro")} list="lista-maestros" />
             <datalist id="lista-maestros">{maestros.map((m) => <option key={m} value={m} />)}</datalist>
-            <input className="u-inp" placeholder="Horario (texto, ej. 5:00 pm - 7:00 pm)" value={v.horario} onChange={set("horario")} />
+            <input className="u-inp" placeholder="Horario (texto que ve el alumno, ej. 5:00 pm - 7:00 pm)" value={v.horario} onChange={set("horario")} />
 
-            <div style={{ marginTop: 6, fontWeight: 700, fontSize: 13, color: "var(--texto)" }}>Horario semanal <span style={{ fontWeight: 400, color: "var(--gris)" }}>(para el calendario y el pago)</span></div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-              {[["1", "Lun"], ["2", "Mar"], ["3", "Mié"], ["4", "Jue"], ["5", "Vie"], ["6", "Sáb"], ["7", "Dom"]].map(([n, lbl]) => (
-                <button type="button" key={n} onClick={() => toggleDia(n)}
-                  style={{ padding: "6px 11px", borderRadius: 8, border: "1px solid var(--borde)", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", background: v.dias.includes(n) ? "var(--naranja)" : "#fff", color: v.dias.includes(n) ? "#fff" : "var(--texto)" }}>
-                  {lbl}
+            <div style={{ marginTop: 10, fontWeight: 700, fontSize: 13, color: "var(--texto)" }}>Clases de la semana <span style={{ fontWeight: 400, color: "var(--gris)" }}>(día y hora de cada clase; alimenta el calendario y el pago)</span></div>
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              {[1, 2].map((n) => (
+                <button type="button" key={n} onClick={() => setModalidad(n)}
+                  style={{ padding: "7px 13px", borderRadius: 999, border: "1px solid var(--borde)", cursor: "pointer", fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", background: clases.length === n ? "var(--naranja)" : "rgba(255,255,255,0.8)", color: clases.length === n ? "#fff" : "var(--texto)" }}>
+                  {n === 1 ? "1 clase / semana" : "2 clases / semana"}
                 </button>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
-              <label style={{ flex: "1 1 130px", fontSize: 12, color: "var(--gris)" }}>Hora de inicio
-                <input className="u-inp" style={{ marginTop: 3 }} type="time" value={v.hora_inicio} onChange={set("hora_inicio")} />
-              </label>
-              <label style={{ flex: "1 1 130px", fontSize: 12, color: "var(--gris)" }}>Duración (horas)
-                <input className="u-inp" style={{ marginTop: 3 }} type="number" min="0" step="0.5" placeholder="2" value={v.duracion_horas} onChange={set("duracion_horas")} />
-              </label>
-            </div>
+            {clases.map((c, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginTop: 8, background: "rgba(43,33,24,0.03)", borderRadius: 12, padding: "10px 12px" }}>
+                <div style={{ flex: "1 1 130px" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--gris)", marginBottom: 3, fontWeight: 600 }}>Clase {i + 1} · día</div>
+                  <Sel width="100%" placeholder="Día…" ariaLabel={"Día clase " + (i + 1)} value={c.dia} onChange={(val) => setClase(i, "dia", val)} options={DIAS_OPC} />
+                </div>
+                <label style={{ flex: "0 0 104px", fontSize: 11.5, color: "var(--gris)", fontWeight: 600 }}>Hora
+                  <input className="u-inp" style={{ marginTop: 3 }} type="time" value={c.hora} onChange={(e) => setClase(i, "hora", e.target.value)} />
+                </label>
+                <label style={{ flex: "0 0 84px", fontSize: 11.5, color: "var(--gris)", fontWeight: 600 }}>Horas
+                  <input className="u-inp" style={{ marginTop: 3 }} type="number" min="0.5" step="0.5" value={c.dur} onChange={(e) => setClase(i, "dur", e.target.value)} />
+                </label>
+              </div>
+            ))}
 
-            <input className="u-inp" placeholder="Liga de Google Meet (https://…)" value={v.liga_meet} onChange={set("liga_meet")} />
+            <input className="u-inp" style={{ marginTop: 10 }} placeholder="Liga de Google Meet (https://…)" value={v.liga_meet} onChange={set("liga_meet")} />
           </>
         )}
         {error && <div className="u-err">{error}</div>}
