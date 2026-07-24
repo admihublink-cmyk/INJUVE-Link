@@ -76,6 +76,12 @@ function Ico({ n, size = 20, className }) {
   );
 }
 
+// Días de la semana (ISO 1-7) → etiquetas cortas, para el horario de los grupos.
+const DIAS_CORTO = { "1": "Lun", "2": "Mar", "3": "Mié", "4": "Jue", "5": "Vie", "6": "Sáb", "7": "Dom" };
+function fmtDias(csv) {
+  return String(csv || "").split(",").map((s) => s.trim()).filter(Boolean).map((n) => DIAS_CORTO[n] || "").filter(Boolean).join(" · ");
+}
+
 // Encabezado de módulo: chip con icono + título + subtítulo (+ acciones a la derecha).
 function PageHead({ ico, title, sub, right }) {
   return (
@@ -512,6 +518,38 @@ function Dashboard({ u }) {
       </div>
       {err && <p style={{ marginTop: 16, fontSize: 13, color: "#B3261E" }}>No se pudieron cargar las métricas.</p>}
 
+      {d && Array.isArray(d.proximas) && d.proximas.length > 0 && (
+        <>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--negro)", marginTop: 34, marginBottom: 2 }}>Próximas clases</h2>
+          <p style={{ color: "var(--gris)", marginBottom: 16, fontSize: 14 }}>La siguiente clase de cada grupo, según su horario semanal.</p>
+          <div className="u-card">
+            <div className="u-tablewrap">
+              <table className="u-table">
+                <thead><tr><th>Cuándo</th><th>Grupo</th><th>Hora</th><th>Maestro</th><th>Clase</th></tr></thead>
+                <tbody>
+                  {d.proximas.map((c, i) => {
+                    const DIAS_L = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+                    const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+                    const dt = new Date(c.fecha + "T00:00:00");
+                    const hoyMx = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
+                    const esHoy = c.fecha === hoyMx;
+                    return (
+                      <tr key={i} style={esHoy ? { background: "#FFF8EE" } : undefined}>
+                        <td style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{`${DIAS_L[dt.getDay()]} ${dt.getDate()} ${MES[dt.getMonth()]}`}{esHoy && <span style={{ color: "var(--naranja-osc)", fontSize: 11, marginLeft: 6, fontWeight: 800 }}>HOY</span>}</td>
+                        <td><b>{c.codigo}</b> <span className="u-rol">N{c.nivel}</span></td>
+                        <td style={{ color: "var(--gris)" }}>{(c.hora_inicio || "").slice(0, 5) || c.horario || "—"}</td>
+                        <td>{c.maestro || "—"}</td>
+                        <td>{c.liga_meet ? <a href={c.liga_meet} target="_blank" rel="noopener noreferrer" style={{ color: "var(--naranja-osc)", fontWeight: 700 }}>Meet ↗</a> : <span style={{ color: "var(--gris)" }}>—</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
       {d && Array.isArray(d.grupos_lista) && (
         <>
           <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--negro)", marginTop: 34, marginBottom: 2 }}>Grupos del programa</h2>
@@ -531,7 +569,10 @@ function Dashboard({ u }) {
                       <td style={{ fontWeight: 700 }}>{g.codigo}</td>
                       <td><span className="u-rol">Nivel {g.nivel}</span></td>
                       <td>{g.maestro || "—"}</td>
-                      <td style={{ color: "var(--gris)" }}>{g.horario || "—"}</td>
+                      <td style={{ color: "var(--gris)" }}>
+                        {fmtDias(g.dias) && <div style={{ color: "var(--texto)", fontWeight: 600 }}>{fmtDias(g.dias)}</div>}
+                        <div style={{ fontSize: 13 }}>{g.horario || "—"}</div>
+                      </td>
                       <td style={{ textAlign: "center", fontWeight: 600 }}>
                         {g.inscritos}<span style={{ color: "var(--gris)", fontWeight: 400 }}> / {g.cupo}</span>
                       </td>
@@ -819,7 +860,10 @@ function Grupos() {
                     <td style={{ fontWeight: 700 }}>{g.codigo}</td>
                     <td><span className="u-rol">{g.nivel || "—"}</span></td>
                     <td>{g.maestro || "—"}{g.maestro_id && <span title="Cuenta de maestro vinculada" style={{ color: "#1B7A3D", marginLeft: 5 }}>●</span>}</td>
-                    <td style={{ color: "var(--gris)", fontSize: 13 }}>{g.horario || "—"}</td>
+                    <td style={{ color: "var(--gris)", fontSize: 13 }}>
+                      {fmtDias(g.dias) && <div style={{ color: "var(--texto)", fontWeight: 600 }}>{fmtDias(g.dias)}</div>}
+                      <div>{g.horario || "—"}</div>
+                    </td>
                     <td style={{ textAlign: "center", fontWeight: 600 }}>{g.inscritos}<span style={{ color: "var(--gris)", fontWeight: 400 }}> / {g.cupo}</span></td>
                     <td>{g.liga_meet ? <a href={g.liga_meet} target="_blank" rel="noopener noreferrer" style={{ color: "var(--naranja-osc)", fontWeight: 700 }}>Meet ↗</a> : <span style={{ color: "var(--gris)" }}>—</span>}</td>
                     <td><span className={"u-badge " + (g.activo ? "on" : "off")}>{g.activo ? "Activo" : "Inactivo"}</span></td>
