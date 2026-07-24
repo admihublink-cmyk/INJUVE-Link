@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
-import { supa, leerSesion } from "../../../lib/auth";
+import { supa } from "../../../lib/auth";
+import { actor } from "../../../lib/panelAuth";
 import { driveConectado, driveConfigurado } from "../../../lib/drive";
 
-async function actor(sb, req) {
-  const s = leerSesion(req);
-  if (!s) return null;
-  const { data: u } = await sb.from("usuarios").select("id, rol_codigo, activo").eq("id", s.id).maybeSingle();
-  if (!u || !u.activo) return null;
-  const { data: perms } = await sb.from("roles_permisos").select("permiso_codigo").eq("rol_codigo", u.rol_codigo);
-  return { permisos: (perms || []).map((p) => p.permiso_codigo) };
-}
+// actor() vive en lib/panelAuth.js (un solo viaje a la base).
 
 // GET: métricas del dashboard + lista de grupos (conteos en vivo).
 export async function GET(req) {
